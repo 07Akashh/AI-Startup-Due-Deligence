@@ -35,6 +35,27 @@ export async function uploadFileToStorage(
   return { url, key, filename: originalFilename };
 }
 
+export async function getPresignedUploadUrl(
+  originalFilename: string,
+  mimeType: string,
+  folder: string = 'uploads',
+  expiresSeconds: number = 3600
+): Promise<{ uploadUrl: string; key: string; downloadUrl: string }> {
+  const ext = originalFilename.split('.').pop() || 'bin';
+  const key = `${folder}/${uuidv4()}.${ext}`;
+
+  const uploadUrl = await s3.getSignedUrlPromise('putObject', {
+    Bucket: env.AWS_BUCKET_NAME,
+    Key: key,
+    ContentType: mimeType,
+    Expires: expiresSeconds,
+  });
+
+  const downloadUrl = await getSignedUrl(key);
+
+  return { uploadUrl, key, downloadUrl };
+}
+
 export async function getSignedUrl(
   key: string,
   expiresSeconds: number = 3600

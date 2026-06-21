@@ -42,23 +42,65 @@ api.interceptors.request.use((config) => {
 });
 
 export async function uploadPitchDeck(file: File) {
-  const form = new FormData();
-  form.append('file', file);
-  const { data } = await api.post('/upload/pitch-deck', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 120000,
-  });
-  return data.data as { url: string; key: string; filename: string };
+  try {
+    const { data } = await api.get('/upload/presign', {
+      params: {
+        filename: file.name,
+        mimeType: file.type,
+        folder: 'pitch-decks',
+      },
+    });
+
+    const { uploadUrl, key, downloadUrl } = data.data;
+
+    await axios.put(uploadUrl, file, {
+      headers: {
+        'Content-Type': file.type,
+      },
+    });
+
+    return { url: downloadUrl, key, filename: file.name };
+  } catch (err) {
+    console.error('Presigned upload failed, falling back to server upload:', err);
+    const form = new FormData();
+    form.append('file', file);
+    const { data } = await api.post('/upload/pitch-deck', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
+    });
+    return data.data as { url: string; key: string; filename: string };
+  }
 }
 
 export async function uploadFinancials(file: File) {
-  const form = new FormData();
-  form.append('file', file);
-  const { data } = await api.post('/upload/financials', form, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 60000,
-  });
-  return data.data as { url: string; key: string; filename: string };
+  try {
+    const { data } = await api.get('/upload/presign', {
+      params: {
+        filename: file.name,
+        mimeType: file.type,
+        folder: 'financials',
+      },
+    });
+
+    const { uploadUrl, key, downloadUrl } = data.data;
+
+    await axios.put(uploadUrl, file, {
+      headers: {
+        'Content-Type': file.type,
+      },
+    });
+
+    return { url: downloadUrl, key, filename: file.name };
+  } catch (err) {
+    console.error('Presigned upload failed, falling back to server upload:', err);
+    const form = new FormData();
+    form.append('file', file);
+    const { data } = await api.post('/upload/financials', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
+    });
+    return data.data as { url: string; key: string; filename: string };
+  }
 }
 
 export async function createJob(payload: {
