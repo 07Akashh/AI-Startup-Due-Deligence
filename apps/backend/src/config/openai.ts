@@ -4,7 +4,7 @@ import { env } from './env';
 
 // Raw OpenAI client
 export const openaiClient = new OpenAI({
-  apiKey: env.OPENAI_API_KEY,
+  apiKey: env.OPENAI_API_KEY || 'dummy-key',
   ...(env.OPENAI_ORG_ID && { organization: env.OPENAI_ORG_ID }),
 });
 

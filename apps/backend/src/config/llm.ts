@@ -6,7 +6,7 @@ import { logger } from '../utils/logger';
 
 // ─── Native OpenAI Client (Used for Vision & raw calls) ─────────────────────────
 export const openaiClient = new OpenAI({
-  apiKey: env.OPENAI_API_KEY,
+  apiKey: env.OPENAI_API_KEY || 'dummy-key',
   ...(env.OPENAI_ORG_ID && { organization: env.OPENAI_ORG_ID }),
 });
 
