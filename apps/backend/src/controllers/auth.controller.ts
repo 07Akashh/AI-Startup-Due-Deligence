@@ -41,15 +41,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     const token = generateToken(user.id);
 
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: env.NODE_ENV === 'production',
-      sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    });
-
     res.status(201).json({
       success: true,
+      token,
       user: {
         id: user.id,
         name: user.name,
@@ -87,15 +81,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     const token = generateToken(user.id);
 
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: env.NODE_ENV === 'production',
-      sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
     res.json({
       success: true,
+      token,
       user: {
         id: user.id,
         name: user.name,
@@ -111,11 +99,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 };
 
 export const logout = async (req: Request, res: Response): Promise<void> => {
-  res.clearCookie('token', {
-    httpOnly: true,
-    secure: env.NODE_ENV === 'production',
-    sameSite: env.NODE_ENV === 'production' ? 'none' : 'lax',
-  });
   res.json({ success: true });
 };
 

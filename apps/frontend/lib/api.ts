@@ -9,6 +9,38 @@ export const api = axios.create({
   withCredentials: true,
 });
 
+export function setCookie(name: string, value: string, days = 7) {
+  if (typeof window === 'undefined') return;
+  const expires = new Date();
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax;Secure`;
+}
+
+export function getCookie(name: string): string | null {
+  if (typeof window === 'undefined') return null;
+  const nameEQ = `${name}=`;
+  const ca = document.cookie.split(';');
+  for (let i = 0; i < ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+    if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+  }
+  return null;
+}
+
+export function eraseCookie(name: string) {
+  if (typeof window === 'undefined') return;
+  document.cookie = `${name}=; Max-Age=-99999999;path=/;SameSite=Lax;Secure`;
+}
+
+api.interceptors.request.use((config) => {
+  const token = getCookie('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 export async function uploadPitchDeck(file: File) {
   const form = new FormData();
   form.append('file', file);
@@ -57,16 +89,23 @@ export async function getMe() {
 
 export async function login(payload: Record<string, unknown>) {
   const { data } = await api.post('/auth/login', payload);
+  if (data.token) {
+    setCookie('token', data.token, 7);
+  }
   return data;
 }
 
 export async function register(payload: Record<string, unknown>) {
   const { data } = await api.post('/auth/register', payload);
+  if (data.token) {
+    setCookie('token', data.token, 7);
+  }
   return data;
 }
 
 export async function logout() {
   const { data } = await api.post('/auth/logout');
+  eraseCookie('token');
   return data;
 }
 
