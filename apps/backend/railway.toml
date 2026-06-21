@@ -1,0 +1,14 @@
+[build]
+  builder = "nixpacks"
+
+[deploy]
+  startCommand = "npx prisma migrate deploy --schema=prisma/schema.prisma && node dist/index.js"
+  healthcheckPath = "/api/v1/health"
+  healthcheckTimeout = 30
+
+[[services]]
+  name = "startupai-backend"
+
+[services.env]
+  PORT = "4000"
+  NODE_ENV = "production"

@@ -1,0 +1,23 @@
+{
+  "name": "startupai",
+  "private": true,
+  "packageManager": "npm@11.6.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "stop": "lsof -ti:3000,4000 | xargs kill -9 || true"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3",
+    "typescript": "^5.5.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

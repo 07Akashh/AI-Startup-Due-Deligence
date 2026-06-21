@@ -1,0 +1,6 @@
+{
+  "name": "@startupai/frontend",
+  "scripts": {
+    "dev": "next dev --port 3000"
+  }
+}

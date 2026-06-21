@@ -1,0 +1,217 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum JobStatus {
+  PENDING
+  EXTRACTING
+  EMBEDDING
+  REASONING
+  VALIDATING
+  COMPLETE
+  FAILED
+}
+
+enum UserRole {
+  FOUNDER
+  INVESTOR
+  ANALYST
+  ADMIN
+}
+
+enum InvestmentRecommendation {
+  STRONG_INVEST
+  INVEST
+  PASS
+  NEEDS_MORE_INFO
+}
+
+enum RiskSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum FinancialHealth {
+  STRONG
+  STABLE
+  CONCERNING
+  CRITICAL
+}
+
+enum AgentEventType {
+  start
+  progress
+  complete
+  error
+}
+
+model User {
+  id               String       @id @default(auto()) @map("_id") @db.ObjectId
+  name             String
+  email            String       @unique
+  passwordHash     String
+  role             UserRole     @default(FOUNDER)
+  credits          Int          @default(10)
+  
+  // Advanced Analytics
+  totalReports     Int          @default(0)
+  totalTokensUsed  Int          @default(0)
+  jobsCompleted    Int          @default(0)
+  jobsFailed       Int          @default(0)
+
+  sessionToken     String?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  jobs                 Job[]
+  creditTransactions   CreditTransaction[]
+}
+
+model CreditTransaction {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount      Int      // Negative for deduction, positive for purchase/grant
+  description String
+  createdAt   DateTime @default(now())
+}
+
+model Job {
+  id               String      @id @default(auto()) @map("_id") @db.ObjectId
+  status           JobStatus   @default(PENDING)
+  pitchDeckUrl     String?
+  websiteUrl       String?
+  financialCsvUrl  String?
+  currentAgent     String?
+  errorMessage     String?
+  startupStage     String?
+  userId           String?     @db.ObjectId
+  user             User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  contentHash      String?     // SHA-256 of uploaded files for cache deduplication
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  report           Report?
+  agentEvents      AgentEvent[]
+
+  @@index([status])
+  @@index([contentHash])
+  @@index([userId])
+}
+
+model Report {
+  id                String                   @id @default(auto()) @map("_id") @db.ObjectId
+  jobId             String                   @unique @db.ObjectId
+  job               Job                      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  // 1. Executive Summary
+  startupName       String?
+  startupTagline    String?
+  startupStage      String?
+  startupFounded    String?
+  startupLocation   String?
+  startupTeamSize   String?
+  startupDescription String?
+  startupHighlights Json                     @default("[]")
+  investmentReadiness String?
+  growthPotential   String?
+
+  // 2. Market Opportunity
+  marketTam         String?
+  marketSam         String?
+  marketSom         String?
+  marketGrowthRate  String?
+  marketTrends      Json                     @default("[]")
+  emergingTrends    Json                     @default("[]")
+  futureOpportunities Json                   @default("[]")
+  industryChallenges Json                    @default("[]")
+  competitorLandscape String?
+
+  // 3. Competitor Analysis
+  // Stored as JSON arrays of detailed objects
+  competitors       Json                     @default("[]")
+
+  // 4. Business Analysis
+  businessProblem   String?
+  businessSolution  String?
+  valueProposition  String?
+  businessModel     String?
+  revenueStreams    Json                     @default("[]")
+  competitiveAdvantage String?
+
+  // 5. Financial Intelligence
+  isFinancialEstimated Boolean                 @default(false)
+  currentRevenue    String?
+  burnRate          String?
+  runway            String?
+  grossMargin       String?
+  cac               String?
+  ltv               String?
+  marketMultiples   String?
+  industryBenchmarks Json                    @default("[]")
+  keyMetrics        Json                     @default("[]")
+  financialHealth   FinancialHealth?
+  financialCommentary String?
+  chartData         Json                     @default("[]")
+
+  // 6. Risks & Strengths
+  risks             Json                     @default("[]")
+  strengths         Json                     @default("[]")
+
+  // 7. Founder Questions
+  founderQuestions  Json                     @default("[]")
+
+  // 8. Investor Readiness & VC Intelligence Layer
+  fundingReadinessScore Int                  @default(0)
+  vcPerspective     String?
+  preSeedSuitability String?
+  seedSuitability    String?
+  seriesASuitability String?
+  recommendedRaiseAmount String?
+  suggestedValuationRange String?
+  
+  investmentThesis  String?
+  marketTiming      String?
+  competitiveMoat   String?
+  exitOpportunities Json                     @default("[]")
+
+  // Scores & Confidence
+  investmentScore   Int                      @default(0)
+  recommendation    InvestmentRecommendation @default(NEEDS_MORE_INFO)
+  confidenceScore   Float                    @default(0) // Overall average
+  confidenceMetrics Json                     @default("{}") // Object mapping sections to scores
+
+  // Export
+  pdfUrl            String?
+
+  // Analytics & Cost Tracking
+  creditsConsumed   Int                      @default(0)
+  tokenUsage        Int                      @default(0)
+  promptTokens      Int                      @default(0)
+  completionTokens  Int                      @default(0)
+  runtimeMs         Int                      @default(0)
+  sourcesUsed       Json                     @default("[]")
+
+  createdAt         DateTime                 @default(now())
+}
+
+model AgentEvent {
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  jobId       String         @db.ObjectId
+  job         Job            @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  agent       String
+  eventType   AgentEventType
+  message     String
+  metadata    Json?
+  createdAt   DateTime       @default(now())
+
+  @@index([jobId])
+  @@index([createdAt])
+}
