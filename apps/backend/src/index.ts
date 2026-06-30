@@ -59,17 +59,19 @@ app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 // ─── Rate Limiting ────────────────────────────────────────────────────────────
 
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
-  max: 100,
+  windowMs: env.RATE_LIMIT_WINDOW_MS,
+  max: env.NODE_ENV === 'development' ? 99999 : env.RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, error: 'Too many requests, please try again later.' },
+  skip: () => env.NODE_ENV === 'development',
 });
 
 const jobCreationLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10,
+  max: env.NODE_ENV === 'development' ? 99999 : env.JOB_RATE_LIMIT_MAX,
   message: { success: false, error: 'Job creation limit reached. Max 10 jobs per hour.' },
+  skip: () => env.NODE_ENV === 'development',
 });
 
 app.use('/api/v1/', apiLimiter);

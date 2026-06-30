@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useTransition, useOptimistic } from 'react';
 import { useRouter } from 'next/navigation';
-import { uploadPitchDeck, uploadFinancials, createJob } from '@/lib/api';
+import { uploadPitchDeck, uploadFinancials } from '@/lib/api';
+import { createJobAction } from '@/app/actions/jobs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { FileText, Globe, DollarSign, CheckCircle2, ArrowRight, UploadCloud } from 'lucide-react';
+import { FileText, Globe, DollarSign, CheckCircle2, ArrowRight, UploadCloud, Loader2 } from 'lucide-react';
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -37,9 +38,11 @@ export default function NewReportPage() {
     startupStage: '',
   });
   const [uploading, setUploading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<'pdf' | 'csv' | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const [optimisticBtnLabel, setOptimisticBtnLabel] =
+    useOptimistic<string>('Generate Report (-1 Credit)');
 
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
@@ -84,26 +87,28 @@ export default function NewReportPage() {
     }
   }, []);
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!state.pitchDeckUrl && !state.websiteUrl && !state.financialCsvUrl) {
       setError('Please provide at least one input.');
       return;
     }
     setError(null);
-    setSubmitting(true);
-    try {
-      const { jobId } = await createJob({
+    startTransition(async () => {
+      setOptimisticBtnLabel('Queuing Analysis…');
+      const result = await createJobAction({
         pitchDeckUrl: state.pitchDeckUrl ?? undefined,
         websiteUrl: state.websiteUrl || undefined,
         financialCsvUrl: state.financialCsvUrl ?? undefined,
         startupStage: state.startupStage || undefined,
       });
-      router.push(`/dashboard/reports/${jobId}`);
-    } catch (e: unknown) {
-      const err = e as { response?: { data?: { error?: string } }, message?: string };
-      setError(`Failed to start analysis: ${err.response?.data?.error || err.message || 'Unknown error'}`);
-      setSubmitting(false);
-    }
+
+      if (!result.success || !result.jobId) {
+        setError(`Failed to start analysis: ${result.error ?? 'Unknown error'}`);
+        return;
+      }
+
+      router.push(`/dashboard/reports/${result.jobId}`);
+    });
   };
 
   return (
@@ -321,13 +326,15 @@ export default function NewReportPage() {
               </div>
             </CardContent>
             <CardFooter className="flex justify-between border-t p-6">
-              <Button variant="outline" onClick={() => setStep(3)}>Back</Button>
-              <Button 
-                onClick={handleSubmit} 
-                disabled={submitting || (!state.pitchDeckFile && !state.websiteUrl && !state.financialFile)}
-                className="w-48"
+              <Button variant="outline" onClick={() => setStep(3)} disabled={isPending}>Back</Button>
+              <Button
+                id="generate-report-btn"
+                onClick={handleSubmit}
+                disabled={isPending || (!state.pitchDeckFile && !state.websiteUrl && !state.financialFile)}
+                className="w-56 gap-2"
               >
-                {submitting ? 'Starting...' : 'Generate Report (-1 Credit)'}
+                {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                {optimisticBtnLabel}
               </Button>
             </CardFooter>
           </>
