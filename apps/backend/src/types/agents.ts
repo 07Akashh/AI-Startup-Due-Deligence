@@ -47,15 +47,37 @@ export interface CsvExtractionResult {
 
 export interface WebExtractionResult {
   url: string;
+  normalizedUrl?: string;
+  finalUrl?: string;
   title: string;
   description: string;
   markdownContent: string;
+  metadata?: Record<string, unknown>;
+  company?: Record<string, unknown>;
+  products?: unknown[];
+  pricing?: unknown[];
+  features?: unknown[];
+  technologies?: unknown[];
+  integrations?: unknown[];
+  faqs?: unknown[];
+  blogs?: unknown[];
+  team?: unknown[];
+  contacts?: Record<string, unknown>;
+  socialLinks?: Record<string, unknown>;
+  jsonLd?: unknown[];
+  pages?: unknown[];
+  crawl?: Record<string, unknown>;
   extractedSections: {
     about?: string;
     product?: string;
     pricing?: string;
     team?: string;
     contact?: string;
+    faq?: string;
+    blog?: string;
+    security?: string;
+    integrations?: string;
+    investors?: string;
   };
 }
 
