@@ -93,4 +93,28 @@ router.get('/:jobId', authenticate, async (req: AuthRequest, res: Response<ApiRe
   }
 });
 
+// DELETE /api/v1/report/:jobId
+// Archive a completed report by removing the job and its dependent records.
+router.delete('/:jobId', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const jobId = req.params.jobId as string;
+    const job = await getJobOrNull(jobId);
+
+    if (job && job.userId !== req.user!.id && req.user!.role !== 'ADMIN') {
+      res.status(403).json({ success: false, error: 'Forbidden' });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.agentEvent.deleteMany({ where: { jobId } });
+      await tx.report.deleteMany({ where: { jobId } });
+      await tx.job.deleteMany({ where: { id: jobId } });
+    });
+
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export default router;
