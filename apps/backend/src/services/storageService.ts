@@ -105,7 +105,7 @@ export function uploadStreamToStorage(
         public_id: publicId,
         resource_type: 'auto',
       },
-      (error: any, result?: UploadApiResponse) => {
+      (error?: Error | { message?: string }, result?: UploadApiResponse) => {
         if (error || !result) {
           return reject(error || new Error('Cloudinary stream upload failed'));
         }

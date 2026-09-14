@@ -1,5 +1,6 @@
 import { StateGraph, END } from '@langchain/langgraph';
-import { AgentState } from './state';
+import { AgentState, AgentName } from '@startupai/shared';
+import { AgentStateAnnotation } from './state';
 import { intakeAgent } from './intakeAgent';
 import { extractionAgent } from './extractionAgent';
 import { knowledgeAgent } from './knowledgeAgent';
@@ -11,89 +12,56 @@ import { emitAgentEvent } from '../services/streamService';
 
 // ─── Conditional Edge: Validator → Reasoning (retry) or Action ───────────────
 
-function shouldRetryOrProceed(state: AgentState): 'reasoning' | 'action' {
+function shouldRetryOrProceed(state: typeof AgentStateAnnotation.State): 'reasoning' | 'action' {
   return state.shouldRetry ? 'reasoning' : 'action';
 }
 
 // ─── Error-safe node wrapper ──────────────────────────────────────────────────
 
 function wrapNode(
-  name: string,
+  name: AgentName,
   fn: (state: AgentState) => Promise<Partial<AgentState>>
 ) {
-  return async (state: AgentState): Promise<Partial<AgentState>> => {
+  return async (state: typeof AgentStateAnnotation.State): Promise<Partial<AgentState>> => {
     try {
-      return await fn(state);
-    } catch (err: any) {
+      return await fn(state as AgentState);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
       console.error(`[graph] Agent ${name} threw:`, err);
-      await updateJobStatus(state.jobId, 'FAILED', name, err.message);
+      await updateJobStatus(state.jobId, 'FAILED', name, errorMessage);
       await emitAgentEvent(
         state.jobId,
-        name as any,
+        name,
         'error',
-        `Agent ${name} failed: ${err.message}`
+        `Agent ${name} failed: ${errorMessage}`
       );
-      return { error: err.message };
+      return { error: errorMessage };
     }
   };
 }
 
 // ─── Graph definition ─────────────────────────────────────────────────────────
 
-// LangGraph requires Annotation-based state in newer versions.
-// We use a simple reducer-free approach: each node returns Partial<AgentState>
-// and LangGraph merges it automatically.
-
 export function buildAgentGraph() {
-  const graph = new StateGraph<AgentState>({
-    channels: {
-      jobId: { value: (x: string, y: string) => y ?? x, default: () => '' },
-      pitchDeckStorageKey: { value: (x: any, y: any) => y ?? x, default: () => undefined },
-      pitchDeckS3Key: { value: (x: any, y: any) => y ?? x, default: () => undefined },
-      pitchDeckSignedUrl: { value: (x: any, y: any) => y ?? x, default: () => undefined },
-      pitchDeckUrl: { value: (x: any, y: any) => y ?? x, default: () => undefined },
-      websiteUrl: { value: (x: any, y: any) => y ?? x, default: () => undefined },
-      financialCsvStorageKey: { value: (x: any, y: any) => y ?? x, default: () => undefined },
-      financialCsvS3Key: { value: (x: any, y: any) => y ?? x, default: () => undefined },
-      financialCsvUrl: { value: (x: any, y: any) => y ?? x, default: () => undefined },
-      pitchDeckContent: { value: (x: any, y: any) => y ?? x, default: () => undefined },
-      websiteContent: { value: (x: any, y: any) => y ?? x, default: () => undefined },
-      financialData: { value: (x: any, y: any) => y ?? x, default: () => undefined },
-      vectorNamespace: { value: (x: any, y: any) => y ?? x, default: () => '' },
-      ragContext: { value: (x: any, y: any) => ({ ...x, ...y }), default: () => ({}) },
-      reportDraft: { value: (x: any, y: any) => ({ ...x, ...y }), default: () => ({}) },
-      validationErrors: { value: (x: any, y: any) => y ?? x, default: () => [] },
-      retryCount: { value: (x: number, y: number) => y ?? x, default: () => 0 },
-      finalReport: { value: (x: any, y: any) => y ?? x, default: () => undefined },
-      shouldRetry: { value: (x: boolean, y: boolean) => y ?? x, default: () => false },
-      error: { value: (x: any, y: any) => y ?? x, default: () => undefined },
-    },
-  });
+  const workflow = new StateGraph(AgentStateAnnotation)
+    .addNode('intake', wrapNode('intake', intakeAgent))
+    .addNode('extraction', wrapNode('extraction', extractionAgent))
+    .addNode('knowledge', wrapNode('knowledge', knowledgeAgent))
+    .addNode('reasoning', wrapNode('reasoning', reasoningAgent))
+    .addNode('validator', wrapNode('validator', validatorAgent))
+    .addNode('action', wrapNode('action', actionAgent))
+    .addEdge('__start__', 'intake')
+    .addEdge('intake', 'extraction')
+    .addEdge('extraction', 'knowledge')
+    .addEdge('knowledge', 'reasoning')
+    .addEdge('reasoning', 'validator')
+    .addConditionalEdges('validator', shouldRetryOrProceed, {
+      reasoning: 'reasoning',
+      action: 'action',
+    })
+    .addEdge('action', END);
 
-  // Add nodes
-  graph.addNode('intake', wrapNode('intake', intakeAgent));
-  graph.addNode('extraction', wrapNode('extraction', extractionAgent));
-  graph.addNode('knowledge', wrapNode('knowledge', knowledgeAgent));
-  graph.addNode('reasoning', wrapNode('reasoning', reasoningAgent));
-  graph.addNode('validator', wrapNode('validator', validatorAgent));
-  graph.addNode('action', wrapNode('action', actionAgent));
-
-  // Add edges
-  graph.setEntryPoint('intake' as any);
-  graph.addEdge('intake' as any, 'extraction' as any);
-  graph.addEdge('extraction' as any, 'knowledge' as any);
-  graph.addEdge('knowledge' as any, 'reasoning' as any);
-  graph.addEdge('reasoning' as any, 'validator' as any);
-
-  // Conditional: retry reasoning or proceed to action
-  graph.addConditionalEdges('validator' as any, shouldRetryOrProceed as any, {
-    reasoning: 'reasoning' as any,
-    action: 'action' as any,
-  });
-
-  graph.addEdge('action' as any, END as any);
-
-  return graph.compile() as any;
+  return workflow.compile();
 }
 
 // ─── Run graph for a job ──────────────────────────────────────────────────────
@@ -102,8 +70,8 @@ export async function runDueDiligenceGraph(initialState: Partial<AgentState>): P
   const graph = buildAgentGraph();
 
   const fullInitialState: AgentState = {
-    jobId: initialState.jobId!,
-    vectorNamespace: initialState.jobId!,
+    jobId: initialState.jobId || '',
+    vectorNamespace: initialState.jobId || '',
     ragContext: {},
     reportDraft: {},
     validationErrors: [],

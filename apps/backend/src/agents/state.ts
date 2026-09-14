@@ -1,55 +1,105 @@
-import { AgentName, AgentEvent, DueDiligenceReport } from '@startupai/shared';
-import { PitchDeckContent } from '../tools/pdfParser';
-import { FinancialData } from '../tools/csvParser';
-import { WebsiteContent } from '../tools/webScraper';
+import { Annotation } from '@langchain/langgraph';
+import {
+  AgentState,
+  ReportSectionKey,
+  PitchDeckContent,
+  WebsiteContent,
+  FinancialData,
+  DueDiligenceReport,
+} from '@startupai/shared';
 
-export interface AgentState {
-  jobId: string;
-  // Inputs
-  pitchDeckStorageKey?: string;
-  pitchDeckS3Key?: string; // backward compat
-  pitchDeckSignedUrl?: string;
-  pitchDeckUrl?: string;
-  websiteUrl?: string;
-  financialCsvStorageKey?: string;
-  financialCsvS3Key?: string; // backward compat
-  financialCsvUrl?: string;
-  startupStage?: string;
+export type { AgentState, ReportSectionKey };
 
-  // Extraction results
-  pitchDeckContent?: PitchDeckContent;
-  websiteContent?: WebsiteContent;
-  financialData?: FinancialData;
+export const AgentStateAnnotation = Annotation.Root({
+  jobId: Annotation<string>({
+    reducer: (_current, update) => update,
+    default: () => '',
+  }),
+  pitchDeckStorageKey: Annotation<string | undefined>({
+    reducer: (_current, update) => update,
+    default: () => undefined,
+  }),
+  pitchDeckS3Key: Annotation<string | undefined>({
+    reducer: (_current, update) => update,
+    default: () => undefined,
+  }),
+  pitchDeckSignedUrl: Annotation<string | undefined>({
+    reducer: (_current, update) => update,
+    default: () => undefined,
+  }),
+  pitchDeckUrl: Annotation<string | undefined>({
+    reducer: (_current, update) => update,
+    default: () => undefined,
+  }),
+  websiteUrl: Annotation<string | undefined>({
+    reducer: (_current, update) => update,
+    default: () => undefined,
+  }),
+  financialCsvStorageKey: Annotation<string | undefined>({
+    reducer: (_current, update) => update,
+    default: () => undefined,
+  }),
+  financialCsvS3Key: Annotation<string | undefined>({
+    reducer: (_current, update) => update,
+    default: () => undefined,
+  }),
+  financialCsvUrl: Annotation<string | undefined>({
+    reducer: (_current, update) => update,
+    default: () => undefined,
+  }),
+  startupStage: Annotation<string | undefined>({
+    reducer: (_current, update) => update,
+    default: () => undefined,
+  }),
 
-  // RAG
-  vectorNamespace: string;
-  ragContext: Partial<Record<ReportSectionKey, string[]>>;
+  pitchDeckContent: Annotation<PitchDeckContent | undefined>({
+    reducer: (_current, update) => update,
+    default: () => undefined,
+  }),
+  websiteContent: Annotation<WebsiteContent | undefined>({
+    reducer: (_current, update) => update,
+    default: () => undefined,
+  }),
+  financialData: Annotation<FinancialData | undefined>({
+    reducer: (_current, update) => update,
+    default: () => undefined,
+  }),
 
-  // Report assembly
-  reportDraft: Partial<DueDiligenceReport>;
-  validationErrors: string[];
-  retryCount: number;
+  vectorNamespace: Annotation<string>({
+    reducer: (_current, update) => update,
+    default: () => '',
+  }),
+  ragContext: Annotation<Partial<Record<ReportSectionKey, string[]>>>({
+    reducer: (current, update) => ({ ...current, ...update }),
+    default: () => ({}),
+  }),
 
-  // Final output
-  finalReport?: DueDiligenceReport;
+  reportDraft: Annotation<Partial<DueDiligenceReport>>({
+    reducer: (current, update) => ({ ...current, ...update }),
+    default: () => ({}),
+  }),
+  validationErrors: Annotation<string[]>({
+    reducer: (_current, update) => update,
+    default: () => [],
+  }),
+  retryCount: Annotation<number>({
+    reducer: (_current, update) => update,
+    default: () => 0,
+  }),
 
-  // Agent flow control
-  shouldRetry: boolean;
-  error?: string;
-}
-
-export type ReportSectionKey =
-  | 'startupSummary'
-  | 'businessAnalysis'
-  | 'marketOpportunity'
-  | 'financialInsights'
-  | 'risks'
-  | 'strengths'
-  | 'founderQuestions'
-  | 'investmentScore'
-  | 'competitors'
-  | 'investorReadiness'
-  | 'vcIntelligence';
+  finalReport: Annotation<DueDiligenceReport | undefined>({
+    reducer: (_current, update) => update,
+    default: () => undefined,
+  }),
+  shouldRetry: Annotation<boolean>({
+    reducer: (_current, update) => update,
+    default: () => false,
+  }),
+  error: Annotation<string | undefined>({
+    reducer: (_current, update) => update,
+    default: () => undefined,
+  }),
+});
 
 export const REPORT_SECTION_QUERIES: Record<ReportSectionKey, string> = {
   startupSummary: 'company name tagline stage founded team description highlights',

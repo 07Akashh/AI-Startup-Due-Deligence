@@ -2,7 +2,7 @@
  * Response helper utilities — standard success/error envelope builders
  * used by all controllers.
  */
-import { Response } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { ApiSuccessResponse, ApiErrorResponse, ResponseMeta } from '../types/api';
 import { AppError, ErrorCode } from '../types/errors';
 import { logger } from './logger';
@@ -39,14 +39,10 @@ export function sendAppError(res: Response, error: AppError): void {
  * Wraps an async controller function and catches all errors,
  * forwarding them to the Express error handler via next().
  */
-export function asyncHandler<T extends (...args: any[]) => Promise<void>>(fn: T): T {
-  return (async (...args: Parameters<T>) => {
-    try {
-      await fn(...args);
-    } catch (err) {
-      // Forward to global error handler middleware
-      const next = args[2];
-      next(err);
-    }
-  }) as T;
+export function asyncHandler(
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<void | Response | unknown>
+): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction) => {
+    fn(req, res, next).catch(next);
+  };
 }

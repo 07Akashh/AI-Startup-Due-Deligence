@@ -1,7 +1,7 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { createJob, getJob } from '../services/jobService';
 import { enqueueJob } from '../queue/jobQueue';
-import { ApiResponse, CreateJobRequest, CreateJobResponse, Job } from '@startupai/shared';
+import { ApiResponse, CreateJobResponse, Job } from '@startupai/shared';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 import { CreditService } from '../services/creditService';
 
@@ -32,7 +32,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response<ApiRespons
     }
 
     // Extract storage key or public ID from URLs if provided
-    const extractKey = (url?: string) => {
+    const extractKey = (url?: string): string | undefined => {
       if (!url) return undefined;
       try {
         if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -81,8 +81,9 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response<ApiRespons
           financialCsvUrl,
           startupStage,
         });
-      } catch (err: any) {
-        console.error(`[jobs] Graph failed for job ${job.id}:`, err);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[jobs] Graph failed for job ${job.id}:`, msg);
       }
     });
 
@@ -90,8 +91,9 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response<ApiRespons
       success: true,
       data: { jobId: job.id, status: job.status },
     });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
@@ -111,8 +113,9 @@ router.get('/:jobId', authenticate, async (req: AuthRequest, res: Response<ApiRe
     }
 
     res.json({ success: true, data: job });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 

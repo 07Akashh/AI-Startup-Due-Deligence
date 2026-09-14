@@ -6,12 +6,12 @@ import multer from 'multer';
 import { Request, Response, NextFunction } from 'express';
 import { UploadError } from '../types/errors';
 
-const ALLOWED_PDF_TYPES  = ['application/pdf'];
-const ALLOWED_CSV_TYPES  = ['text/csv', 'application/csv', 'application/vnd.ms-excel', 'text/plain'];
-const MAX_PDF_SIZE_BYTES  = 50 * 1024 * 1024; // 50 MB
-const MAX_CSV_SIZE_BYTES  = 10 * 1024 * 1024; // 10 MB
+const ALLOWED_PDF_TYPES = ['application/pdf'];
+const ALLOWED_CSV_TYPES = ['text/csv', 'application/csv', 'application/vnd.ms-excel', 'text/plain'];
+const MAX_PDF_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
+const MAX_CSV_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
-// Memory storage — we stream directly to S3, no disk I/O
+// Memory storage — streams directly to Cloudinary, no disk I/O
 const memoryStorage = multer.memoryStorage();
 
 function createUploader(maxSize: number) {
@@ -32,8 +32,10 @@ export function validatePdfUpload(req: Request, _res: Response, next: NextFuncti
     next(new UploadError('No file uploaded. Expected field name: "file"'));
     return;
   }
-  if (!req.file.originalname.toLowerCase().endsWith('.pdf') &&
-      !ALLOWED_PDF_TYPES.includes(req.file.mimetype)) {
+  if (
+    !req.file.originalname.toLowerCase().endsWith('.pdf') &&
+    !ALLOWED_PDF_TYPES.includes(req.file.mimetype)
+  ) {
     next(new UploadError('Only PDF files are accepted'));
     return;
   }
@@ -64,7 +66,7 @@ export function validateCsvUpload(req: Request, _res: Response, next: NextFuncti
  * Multer-specific error handler — must be used after upload middleware.
  */
 export function multerErrorHandler(
-  err: any,
+  err: unknown,
   _req: Request,
   _res: Response,
   next: NextFunction

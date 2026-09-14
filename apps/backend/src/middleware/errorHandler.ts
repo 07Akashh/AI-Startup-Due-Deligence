@@ -12,10 +12,9 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  const requestId = (req as any).requestId ?? 'unknown';
+  const requestId = req.requestId ?? 'unknown';
 
   if (err instanceof AppError) {
-    // Operational errors — expected, log at warn level
     logger.warn('Operational error', {
       requestId,
       errorCode: err.errorCode,
@@ -36,7 +35,6 @@ export function errorHandler(
     return;
   }
 
-  // Non-operational errors — programming bugs, unknown failures
   logger.error('Unexpected error', {
     requestId,
     message: err.message,

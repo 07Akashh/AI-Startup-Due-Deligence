@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { EventEmitter } from 'events';
 import { AgentName, AgentEventType } from '@startupai/shared';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -42,7 +43,7 @@ export async function emitAgentEvent(
       agent,
       eventType,
       message,
-      metadata: (metadata as any) ?? undefined,
+      metadata: metadata ? (metadata as Prisma.InputJsonValue) : undefined,
     },
   });
 

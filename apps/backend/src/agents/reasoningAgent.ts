@@ -7,28 +7,22 @@ import {
   FinancialData as AgentFinancialData,
   RetrievedKnowledge,
 } from './dueDiligenceReasoningAgent';
-
-// ─── Reasoning Agent (Graph Node) ────────────────────────────────────────────
+import { DueDiligenceReport } from '@startupai/shared';
 
 /**
- * Reasoning Agent — graph node that:
+ * Reasoning Agent — LangGraph node that:
  * 1. Builds structured inputs from AgentState
- * 2. Delegates to the Due Diligence Reasoning Agent (single-pass, comprehensive)
- * 3. Maps the rich output back to AgentState.reportDraft
+ * 2. Delegates to the Due Diligence Reasoning Agent (comprehensive VC analysis)
+ * 3. Maps the rich output back to AgentState.reportDraft with full type safety
  */
 export async function reasoningAgent(
-  state: AgentState,
+  state: AgentState
 ): Promise<Partial<AgentState>> {
   const { jobId, ragContext, financialData, pitchDeckContent, websiteContent } = state;
 
   await emitAgentEvent(jobId, 'reasoning', 'start', 'AI due diligence analysis in progress...');
   await updateJobStatus(jobId, 'REASONING', 'reasoning');
 
-  // ── Build structured inputs from state ─────────────────────────────────────
-
-  // Build startup data from available content
-  // PitchDeckContent has: rawText, pages, sections, source
-  // WebsiteContent has: title, description, markdownContent, extractedSections
   const pitchText = pitchDeckContent?.rawText || '';
   const pitchSections = pitchDeckContent?.sections || {};
 
@@ -43,21 +37,18 @@ export async function reasoningAgent(
     keyHighlights: Object.values(pitchSections).slice(0, 5).filter(Boolean),
   };
 
-  // FinancialData has: rawRows, columns, metrics { revenue, expenses, burnRate, runway, grossMargin }, summary, chartData
   const financialInput: AgentFinancialData = {
-    summary: financialData?.summary,
-    currentRevenue: financialData?.metrics?.revenue?.at(-1)?.toString(),
-    burnRate: financialData?.metrics?.burnRate?.at(-1)?.toString(),
-    runway: financialData?.metrics?.runway?.toString(),
-    grossMargin: financialData?.metrics?.grossMargin?.toString(),
-    chartData: financialData?.chartData,
+    rawRows: financialData?.rawRows || [],
+    columns: financialData?.columns || [],
+    metrics: financialData?.metrics || {},
+    summary: financialData?.summary || '',
+    chartData: financialData?.chartData || [],
   };
 
-  // Flatten all RAG context chunks into a single knowledge array
-  const allContextChunks: string[] = Object.values(ragContext ?? {}).flat();
+  const allContextChunks: string[] = Object.values(ragContext ?? {}).flatMap(
+    (chunks) => chunks || []
+  );
   const knowledge: RetrievedKnowledge = { context: allContextChunks };
-
-  // ── Run the due diligence reasoning agent ──────────────────────────────────
 
   await emitAgentEvent(jobId, 'reasoning', 'progress', '🔍 Running comprehensive due diligence analysis...');
 
@@ -67,15 +58,17 @@ export async function reasoningAgent(
     knowledge,
     state.startupStage,
     pitchDeckContent?.rawText,
-    websiteContent?.markdownContent,
+    websiteContent?.markdownContent
   );
 
-  await emitAgentEvent(jobId, 'reasoning', 'progress', `✓ Analysis complete. Score: ${result.investmentScore}/100 (${result.recommendation})`);
+  await emitAgentEvent(
+    jobId,
+    'reasoning',
+    'progress',
+    `✓ Analysis complete. Score: ${result.investmentScore}/100 (${result.recommendation})`
+  );
 
-  // ── Map rich output back to AgentState.reportDraft ─────────────────────────
-
-  const reportDraft: AgentState['reportDraft'] = {
-    // Startup Summary
+  const reportDraft: Partial<DueDiligenceReport> = {
     startupSummary: {
       name: result.name,
       tagline: result.tagline,
@@ -84,38 +77,34 @@ export async function reasoningAgent(
       location: result.location,
       teamSize: result.teamSize,
       description: result.description,
-      keyHighlights: result.keyHighlights as string[],
+      keyHighlights: result.keyHighlights,
       investmentReadiness: result.investmentReadiness,
       growthPotential: result.growthPotential,
-    } as any,
+    },
 
-    // Business Analysis
     businessAnalysis: {
       problem: result.problem,
       solution: result.solution,
       valueProposition: result.valueProposition,
       businessModel: result.businessModel,
-      revenueStreams: result.revenueStreams as string[],
+      revenueStreams: result.revenueStreams,
       competitiveAdvantage: result.competitiveAdvantage,
-    } as any,
+    },
 
-    // Market Opportunity
     marketOpportunity: {
       tam: result.tam,
       sam: result.sam,
       som: result.som,
       marketGrowthRate: result.marketGrowthRate,
-      keyTrends: result.keyTrends as string[],
-      emergingTrends: result.emergingTrends as string[],
-      futureOpportunities: result.futureOpportunities as string[],
-      industryChallenges: result.industryChallenges as string[],
+      keyTrends: result.keyTrends,
+      emergingTrends: result.emergingTrends,
+      futureOpportunities: result.futureOpportunities,
+      industryChallenges: result.industryChallenges,
       competitorLandscape: result.competitorLandscape,
-    } as any,
+    },
 
-    // Competitors
-    competitors: result.competitors as any,
+    competitors: result.competitors,
 
-    // Financial Insights
     financialInsights: {
       isFinancialEstimated: result.isFinancialEstimated,
       currentRevenue: result.currentRevenue,
@@ -125,20 +114,16 @@ export async function reasoningAgent(
       cac: result.cac,
       ltv: result.ltv,
       marketMultiples: result.marketMultiples,
-      industryBenchmarks: result.industryBenchmarks as any,
-      keyMetrics: result.keyMetrics as any,
+      industryBenchmarks: result.industryBenchmarks,
+      keyMetrics: result.keyMetrics,
       financialHealth: result.financialHealth,
       commentary: result.financialCommentary,
       chartData: financialData?.chartData ?? [],
     },
 
-    // Risks
-    risks: result.risks as any,
+    risks: result.risks,
+    strengths: result.strengths,
 
-    // Strengths
-    strengths: result.strengths as any,
-
-    // Investor Readiness
     investorReadiness: {
       fundingReadinessScore: result.fundingReadinessScore,
       vcPerspective: result.vcPerspective,
@@ -149,7 +134,6 @@ export async function reasoningAgent(
       suggestedValuationRange: result.suggestedValuationRange,
     },
 
-    // VC Intelligence
     vcIntelligence: {
       investmentThesis: result.investmentThesis,
       marketTiming: result.marketTiming,
@@ -157,9 +141,8 @@ export async function reasoningAgent(
       exitOpportunities: result.exitOpportunities,
     },
 
-    // Investment Score
     investmentScore: result.investmentScore,
-    recommendation: result.recommendation as any,
+    recommendation: result.recommendation,
     founderQuestions: result.founderQuestions,
     confidenceScore: result.confidenceScore,
     sourcesUsed: result.sourcesUsed,

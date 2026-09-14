@@ -9,11 +9,17 @@ import { ValidationError } from '../types/errors';
 
 type ValidateTarget = 'body' | 'params' | 'query';
 
+export interface ValidatedRequest<TBody = unknown, TQuery = unknown, TParams = unknown> extends Request {
+  parsedBody?: TBody;
+  parsedQuery?: TQuery;
+  parsedParams?: TParams;
+}
+
 export function validateRequest<T>(
   schema: z.ZodType<T>,
   target: ValidateTarget = 'body'
 ) {
-  return (req: Request, _res: Response, next: NextFunction): void => {
+  return (req: ValidatedRequest, _res: Response, next: NextFunction): void => {
     const result = schema.safeParse(req[target]);
 
     if (!result.success) {
@@ -26,9 +32,9 @@ export function validateRequest<T>(
       return;
     }
 
-    // Attach parsed (and potentially transformed) data back to request
-    (req as any)[`parsed${target.charAt(0).toUpperCase() + target.slice(1)}`] =
-      result.data;
+    if (target === 'body') req.parsedBody = result.data;
+    if (target === 'query') req.parsedQuery = result.data;
+    if (target === 'params') req.parsedParams = result.data;
 
     next();
   };

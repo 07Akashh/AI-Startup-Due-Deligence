@@ -11,8 +11,8 @@ const router = Router();
 router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    const page = Math.max(1, parseInt(req.query.page as string || '1'));
-    const limit = Math.max(1, Math.min(100, parseInt(req.query.limit as string || '10')));
+    const page = Math.max(1, parseInt((req.query.page as string) || '1', 10));
+    const limit = Math.max(1, Math.min(100, parseInt((req.query.limit as string) || '10', 10)));
     const skip = (page - 1) * limit;
 
     const [jobs, total] = await Promise.all([
@@ -61,11 +61,11 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
         },
       },
     });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, error: msg });
   }
 });
-
 
 // GET /api/v1/report/:jobId
 router.get('/:jobId', authenticate, async (req: AuthRequest, res: Response<ApiResponse<DueDiligenceReport>>) => {
@@ -88,13 +88,13 @@ router.get('/:jobId', authenticate, async (req: AuthRequest, res: Response<ApiRe
     }
 
     res.json({ success: true, data: report });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
 // DELETE /api/v1/report/:jobId
-// Archive a completed report by removing the job and its dependent records.
 router.delete('/:jobId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const jobId = req.params.jobId as string;
@@ -112,8 +112,9 @@ router.delete('/:jobId', authenticate, async (req: AuthRequest, res: Response) =
     });
 
     res.json({ success: true });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 

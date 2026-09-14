@@ -34,12 +34,12 @@ export function chunkText(
 
   while (start < text.length) {
     const end = Math.min(start + chunkChars, text.length);
-    const chunkText = text.slice(start, end).trim();
+    const piece = text.slice(start, end).trim();
 
-    if (chunkText.length > 50) {
+    if (piece.length > 50) {
       chunks.push({
         id: uuidv4(),
-        text: chunkText,
+        text: piece,
         metadata: { jobId, source, section, chunkIndex: index++ },
       });
     }
@@ -68,7 +68,7 @@ export async function upsertChunks(chunks: TextChunk[], namespace: string): Prom
       values: embeddingVectors[idx],
       metadata: {
         ...chunk.metadata,
-        text: chunk.text.slice(0, 1000), // Store truncated text for retrieval
+        text: chunk.text.slice(0, 1000), // Store text for retrieval
       },
     }));
 
@@ -90,9 +90,9 @@ export async function queryChunks(
     includeMetadata: true,
   });
 
-  return results.matches
-    .filter((m) => (m.score ?? 0) > 0.4)
-    .map((m) => (m.metadata?.text as string) ?? '')
+  return (results.matches || [])
+    .filter((m) => (m.score ?? 0) > 0.35)
+    .map((m) => (typeof m.metadata?.text === 'string' ? m.metadata.text : ''))
     .filter(Boolean);
 }
 
@@ -100,7 +100,7 @@ export async function deleteNamespace(namespace: string): Promise<void> {
   try {
     const index = getPineconeIndex().namespace(namespace);
     await index.deleteAll();
-  } catch (err) {
+  } catch (err: unknown) {
     console.warn(`[pinecone] Failed to delete namespace ${namespace}:`, err);
   }
 }

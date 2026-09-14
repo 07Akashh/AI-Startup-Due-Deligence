@@ -38,8 +38,9 @@ export async function extractionAgent(state: AgentState): Promise<Partial<AgentS
             'progress',
             `Pitch deck extracted: ${updates.pitchDeckContent.pages} pages (${updates.pitchDeckContent.source} mode)`
           );
-        } catch (err: any) {
-          await emitAgentEvent(jobId, 'extraction', 'progress', `Pitch deck extraction partial: ${err.message}`);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          await emitAgentEvent(jobId, 'extraction', 'progress', `Pitch deck extraction partial: ${msg}`);
         }
       })()
     );
@@ -57,8 +58,9 @@ export async function extractionAgent(state: AgentState): Promise<Partial<AgentS
             'progress',
             `Website scraped: "${updates.websiteContent.title}"`
           );
-        } catch (err: any) {
-          await emitAgentEvent(jobId, 'extraction', 'progress', `Website scraping partial: ${err.message}`);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          await emitAgentEvent(jobId, 'extraction', 'progress', `Website scraping partial: ${msg}`);
         }
       })()
     );
@@ -81,8 +83,9 @@ export async function extractionAgent(state: AgentState): Promise<Partial<AgentS
             'progress',
             `Financials parsed: ${updates.financialData.rawRows.length} rows`
           );
-        } catch (err: any) {
-          await emitAgentEvent(jobId, 'extraction', 'progress', `CSV parsing partial: ${err.message}`);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          await emitAgentEvent(jobId, 'extraction', 'progress', `CSV parsing partial: ${msg}`);
         }
       })()
     );

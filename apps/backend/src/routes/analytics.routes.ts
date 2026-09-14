@@ -8,7 +8,7 @@ const router = Router();
 router.get('/dashboard', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user!.id;
-    
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { credits: true, totalReports: true },
@@ -40,13 +40,14 @@ router.get('/dashboard', authenticate, async (req: AuthRequest, res: Response) =
         recentJobs,
       },
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 
 // GET /api/v1/analytics/admin (Admin only)
-router.get('/admin', authenticate, requireRole(['ADMIN']), async (req: AuthRequest, res: Response) => {
+router.get('/admin', authenticate, requireRole(['ADMIN']), async (_req: AuthRequest, res: Response) => {
   try {
     const totalUsers = await prisma.user.count();
     const totalJobs = await prisma.job.count();
@@ -62,8 +63,9 @@ router.get('/admin', authenticate, requireRole(['ADMIN']), async (req: AuthReque
         totalSystemTokens: systemTokens._sum.tokenUsage || 0,
       },
     });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : String(error);
+    res.status(500).json({ success: false, error: msg });
   }
 });
 

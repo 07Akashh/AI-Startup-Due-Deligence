@@ -1,45 +1,45 @@
 import * as cheerio from 'cheerio';
-import { normalizeWhitespace } from './utils';
+import type { AnyNode, Element } from 'domhandler';
 
 const BLOCK_SELECTORS = [
   'main',
   'article',
-  'section',
-  '[role="main"]',
-  '.content',
   '#content',
+  '.content',
+  '.main',
+  '.documentation',
+  '.docs',
   '.post-content',
+  '.article-content',
   '.page-content',
-  '.entry-content',
-  '.markdown-body',
 ];
 
 const NOISE_SELECTORS = [
-  'script',
-  'style',
-  'noscript',
-  'svg',
-  'iframe',
+  'nav',
   'header',
   'footer',
-  'nav',
   'aside',
+  'noscript',
+  'script',
+  'style',
+  'svg',
+  'iframe',
   'form',
-  'button',
+  'dialog',
   '[aria-hidden="true"]',
   '[hidden]',
 ];
 
 export function buildCleanMarkdown($: cheerio.CheerioAPI): string {
-  const loadOptions = { decodeEntities: false };
-  const working = cheerio.load($.html(), loadOptions as any);
+  const working = cheerio.load($.html());
   working(`${NOISE_SELECTORS.join(',')}, [class*="cookie"], [id*="cookie"], [class*="newsletter"], [id*="newsletter"], [class*="modal"], [id*="modal"], [class*="popup"], [id*="popup"], [class*="ad"], [id*="ad"]`).remove();
 
   const root = pickRoot(working);
-  return normalizeMarkdown(renderElement(working, root.get(0) ?? working('body').get(0)));
+  const rootElement = root.get(0) ?? working('body').get(0);
+  return normalizeMarkdown(renderElement(working, rootElement));
 }
 
-function pickRoot($: cheerio.CheerioAPI): cheerio.Cheerio<any> {
+function pickRoot($: cheerio.CheerioAPI): cheerio.Cheerio<AnyNode> {
   for (const selector of BLOCK_SELECTORS) {
     const candidate = $(selector).first();
     if (candidate.length && candidate.text().replace(/\s+/g, ' ').trim().length > 120) {
@@ -49,13 +49,15 @@ function pickRoot($: cheerio.CheerioAPI): cheerio.Cheerio<any> {
   return $('body').first();
 }
 
-function renderElement($: cheerio.CheerioAPI, node: any): string {
+function renderElement($: cheerio.CheerioAPI, node?: AnyNode | null): string {
   if (!node) return '';
-  if (node.type === 'text') return normalizeWhitespace(node.data ?? '');
+  if (node.type === 'text') {
+    return normalizeWhitespace('data' in node ? node.data ?? '' : '');
+  }
   if (node.type !== 'tag') return '';
 
-  const tag = node.name.toLowerCase();
-  const current = $(node);
+  const tag = (node as Element).name.toLowerCase();
+  const current = $(node as Element);
 
   if (/^h[1-6]$/.test(tag)) {
     const level = Number(tag.slice(1));
@@ -68,33 +70,25 @@ function renderElement($: cheerio.CheerioAPI, node: any): string {
     return text ? `${text}\n\n` : '';
   }
 
+  if (tag === 'ul' || tag === 'ol') {
+    const items = current.children('li').toArray().map((li, index) => {
+      const text = collectInlineText($, li);
+      if (!text) return '';
+      const prefix = tag === 'ol' ? `${index + 1}. ` : '- ';
+      return `${prefix}${text}`;
+    }).filter(Boolean);
+    return items.length ? `${items.join('\n')}\n\n` : '';
+  }
+
   if (tag === 'blockquote') {
     const text = collectInlineText($, node);
-    return text ? `${text.split(/\n+/).map((line) => `> ${line}`).join('\n')}\n\n` : '';
+    return text ? `> ${text.replace(/\n/g, '\n> ')}\n\n` : '';
   }
 
   if (tag === 'pre') {
-    const code = normalizeWhitespace(current.text());
-    return code ? `\n\n\
-\
-\
-\
-${code}\n\n` : '';
-  }
-
-  if (tag === 'code') {
-    const code = normalizeWhitespace(current.text());
-    return code ? `\`${code}\`` : '';
-  }
-
-  if (tag === 'ul' || tag === 'ol') {
-    const items = current
-      .children('li')
-      .toArray()
-      .map((child, index) => `${tag === 'ol' ? `${index + 1}.` : '-'} ${collectInlineText($, child)}`)
-      .filter(Boolean)
-      .join('\n');
-    return items ? `${items}\n\n` : '';
+    const code = current.find('code').first();
+    const text = (code.length ? code.text() : current.text()).trim();
+    return text ? `\`\`\`\n${text}\n\`\`\`\n\n` : '';
   }
 
   if (tag === 'table') {
@@ -102,35 +96,61 @@ ${code}\n\n` : '';
     if (!rows.length) return '';
     const header = rows[0];
     const body = rows.slice(1);
-    const headerLine = `| ${header.join(' | ')} |`;
-    const separator = `| ${header.map(() => '---').join(' | ')} |`;
-    const bodyLines = body.map((row) => `| ${row.join(' | ')} |`).join('\n');
-    return `${headerLine}\n${separator}${bodyLines ? `\n${bodyLines}` : ''}\n\n`;
+    const divider = header.map(() => '---');
+    const tableLines = [
+      `| ${header.join(' | ')} |`,
+      `| ${divider.join(' | ')} |`,
+      ...body.map((cells) => `| ${cells.join(' | ')} |`),
+    ];
+    return `${tableLines.join('\n')}\n\n`;
   }
 
-  let output = '';
-  current.contents().each((_, child) => {
-    output += renderElement($, child);
-  });
-  return output;
+  return current.contents().toArray().map((child) => renderElement($, child)).join('');
 }
 
-function collectInlineText($: cheerio.CheerioAPI, node: any): string {
-  return normalizeWhitespace(
-    $(node)
-      .clone()
-      .find('script,style,noscript')
-      .remove()
-      .end()
-      .text()
-  );
+function collectInlineText($: cheerio.CheerioAPI, node?: AnyNode | null): string {
+  if (!node) return '';
+  if (node.type === 'text') {
+    return normalizeWhitespace('data' in node ? node.data ?? '' : '');
+  }
+  if (node.type !== 'tag') return '';
+
+  const tag = (node as Element).name.toLowerCase();
+  const current = $(node as Element);
+
+  if (tag === 'a') {
+    const text = normalizeWhitespace(current.text());
+    const href = current.attr('href');
+    return href && text ? `[${text}](${href})` : text;
+  }
+
+  if (tag === 'strong' || tag === 'b') {
+    const text = normalizeWhitespace(current.text());
+    return text ? `**${text}**` : '';
+  }
+
+  if (tag === 'em' || tag === 'i') {
+    const text = normalizeWhitespace(current.text());
+    return text ? `*${text}*` : '';
+  }
+
+  if (tag === 'code') {
+    const text = normalizeWhitespace(current.text());
+    return text ? `\`${text}\`` : '';
+  }
+
+  if (tag === 'br') return '\n';
+
+  return current.contents().toArray().map((child) => collectInlineText($, child)).join(' ');
 }
 
-function normalizeMarkdown(markdown: string): string {
-  return markdown
-    .split('\n')
-    .map((line) => line.trimEnd())
-    .filter((line, index, array) => !(line === '' && array[index - 1] === ''))
-    .join('\n')
+function normalizeWhitespace(text: string): string {
+  return text.replace(/\r/g, '').replace(/[ \t]+/g, ' ').replace(/\n\s+/g, '\n').trim();
+}
+
+function normalizeMarkdown(text: string): string {
+  return text
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/^[ \t]+|[ \t]+$/gm, '')
     .trim();
 }

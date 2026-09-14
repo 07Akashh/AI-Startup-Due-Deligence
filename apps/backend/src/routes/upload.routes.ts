@@ -9,7 +9,6 @@ import { ApiResponse, UploadResponse } from '@startupai/shared';
 
 const router = Router();
 
-// Memory storage for small file fallback; streams directly without disk writes
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
@@ -25,8 +24,9 @@ router.get('/signature', async (req: Request, res: Response) => {
     const { folder, filename } = req.query as { folder?: string; filename?: string };
     const result = await getCloudinaryUploadSignature(folder || 'uploads', filename);
     return res.json({ success: true, data: result });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ success: false, error: msg });
   }
 });
 
@@ -45,8 +45,9 @@ router.get('/presign', async (req: Request, res: Response) => {
     }
     const result = await getPresignedUploadUrl(filename, mimeType || '', folder || 'uploads');
     return res.json({ success: true, data: result });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ success: false, error: msg });
   }
 });
 
@@ -74,8 +75,9 @@ router.post(
       );
 
       return res.json({ success: true, data: result });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return res.status(500).json({ success: false, error: msg });
     }
   }
 );
@@ -104,8 +106,9 @@ router.post(
       );
 
       return res.json({ success: true, data: result });
-    } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return res.status(500).json({ success: false, error: msg });
     }
   }
 );

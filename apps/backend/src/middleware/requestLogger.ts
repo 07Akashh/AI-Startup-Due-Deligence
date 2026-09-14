@@ -7,9 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger';
 
 export function requestLogger(req: Request, res: Response, next: NextFunction): void {
-  // Attach unique request ID
   const requestId = uuidv4();
-  (req as any).requestId = requestId;
+  req.requestId = requestId;
   res.setHeader('X-Request-ID', requestId);
 
   const startTime = Date.now();

@@ -156,8 +156,7 @@ export function parseRobotsTxt(text: string, sitemapOrigin: string): RobotsRules
 }
 
 export function parseSitemapXml(xml: string): { sitemapUrls: string[]; urlUrls: string[] } {
-  const loadOptions = { xmlMode: true };
-  const $ = cheerio.load(xml, loadOptions as any);
+  const $ = cheerio.load(xml, { xml: true });
   const sitemapUrls = $('sitemap > loc').map((_, el) => normalizeWhitespace($(el).text())).get().filter(Boolean);
   const urlUrls = $('url > loc').map((_, el) => normalizeWhitespace($(el).text())).get().filter(Boolean);
   return { sitemapUrls: unique(sitemapUrls), urlUrls: unique(urlUrls) };

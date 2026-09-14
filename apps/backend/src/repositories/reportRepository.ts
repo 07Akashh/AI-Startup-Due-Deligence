@@ -2,16 +2,28 @@
  * Report Repository — all Prisma queries for the Report model.
  */
 import { Report as PrismaReport, Prisma } from '@prisma/client';
-import { DueDiligenceReport, InvestmentRecommendation, Competitor } from '@startupai/shared';
+import {
+  DueDiligenceReport,
+  InvestmentRecommendation,
+  Competitor,
+  FinancialBenchmark,
+  KeyMetric,
+  FinancialHealth,
+  RiskItem,
+  StrengthItem,
+  FinancialChartDataPoint,
+} from '@startupai/shared';
 import { BaseRepository } from './baseRepository';
 import { NotFoundError } from '../types/errors';
 import { ReportQueryResult } from '../types/api';
 
 export class ReportRepository extends BaseRepository {
-
   // ─── Create / Update ─────────────────────────────────────────────────────────
 
-  async upsert(jobId: string, data: Omit<DueDiligenceReport, 'id' | 'createdAt' | 'jobId'>): Promise<DueDiligenceReport> {
+  async upsert(
+    jobId: string,
+    data: Omit<DueDiligenceReport, 'id' | 'createdAt' | 'jobId'>
+  ): Promise<DueDiligenceReport> {
     const payload = this.toDbPayload(data);
 
     const report = await this.db.report.upsert({
@@ -50,7 +62,7 @@ export class ReportRepository extends BaseRepository {
       take: limit,
     });
 
-    return reports.map(r => ({
+    return reports.map((r) => ({
       jobId: r.jobId,
       investmentScore: r.investmentScore,
       recommendation: r.recommendation as InvestmentRecommendation,
@@ -68,7 +80,9 @@ export class ReportRepository extends BaseRepository {
 
   // ─── Mapper ──────────────────────────────────────────────────────────────────
 
-  private toDbPayload(data: Omit<DueDiligenceReport, 'id' | 'createdAt' | 'jobId'>): any {
+  private toDbPayload(
+    data: Omit<DueDiligenceReport, 'id' | 'createdAt' | 'jobId'>
+  ): Prisma.ReportCreateWithoutJobInput {
     return {
       startupName: data.startupSummary.name,
       startupTagline: data.startupSummary.tagline,
@@ -97,8 +111,8 @@ export class ReportRepository extends BaseRepository {
       futureOpportunities: data.marketOpportunity.futureOpportunities,
       industryChallenges: data.marketOpportunity.industryChallenges,
       competitorLandscape: data.marketOpportunity.competitorLandscape,
-      
-      competitors: (data.competitors as any) ?? [],
+
+      competitors: data.competitors as unknown as Prisma.InputJsonValue,
 
       isFinancialEstimated: data.financialInsights.isFinancialEstimated ?? false,
       currentRevenue: data.financialInsights.currentRevenue,
@@ -108,14 +122,14 @@ export class ReportRepository extends BaseRepository {
       cac: data.financialInsights.cac,
       ltv: data.financialInsights.ltv,
       marketMultiples: data.financialInsights.marketMultiples,
-      industryBenchmarks: (data.financialInsights.industryBenchmarks as any) ?? [],
-      keyMetrics: (data.financialInsights.keyMetrics as any) ?? [],
+      industryBenchmarks: data.financialInsights.industryBenchmarks as unknown as Prisma.InputJsonValue,
+      keyMetrics: data.financialInsights.keyMetrics as unknown as Prisma.InputJsonValue,
       financialHealth: data.financialInsights.financialHealth,
       financialCommentary: data.financialInsights.commentary,
-      chartData: (data.financialInsights.chartData as any) ?? [],
+      chartData: data.financialInsights.chartData as unknown as Prisma.InputJsonValue,
 
-      risks: (data.risks as any) ?? [],
-      strengths: (data.strengths as any) ?? [],
+      risks: data.risks as unknown as Prisma.InputJsonValue,
+      strengths: data.strengths as unknown as Prisma.InputJsonValue,
       founderQuestions: data.founderQuestions,
 
       fundingReadinessScore: data.investorReadiness.fundingReadinessScore,
@@ -134,7 +148,7 @@ export class ReportRepository extends BaseRepository {
       investmentScore: data.investmentScore,
       recommendation: data.recommendation,
       confidenceScore: data.confidenceScore,
-      confidenceMetrics: data.confidenceMetrics ?? {},
+      confidenceMetrics: (data.confidenceMetrics as unknown as Prisma.InputJsonValue) ?? Prisma.JsonNull,
       sourcesUsed: data.sourcesUsed ?? [],
       pdfUrl: data.pdfUrl,
     };
@@ -185,14 +199,14 @@ export class ReportRepository extends BaseRepository {
         cac: r.cac ?? undefined,
         ltv: r.ltv ?? undefined,
         marketMultiples: r.marketMultiples ?? undefined,
-        industryBenchmarks: (r.industryBenchmarks as any[]) ?? [],
-        keyMetrics: (r.keyMetrics as any[]) ?? [],
-        financialHealth: (r.financialHealth as any) ?? 'STABLE',
+        industryBenchmarks: (r.industryBenchmarks as unknown as FinancialBenchmark[]) ?? [],
+        keyMetrics: (r.keyMetrics as unknown as KeyMetric[]) ?? [],
+        financialHealth: (r.financialHealth as unknown as FinancialHealth) ?? 'STABLE',
         commentary: r.financialCommentary ?? '',
-        chartData: (r.chartData as any[]) ?? [],
+        chartData: (r.chartData as unknown as FinancialChartDataPoint[]) ?? [],
       },
-      risks: (r.risks as any[]) ?? [],
-      strengths: (r.strengths as any[]) ?? [],
+      risks: (r.risks as unknown as RiskItem[]) ?? [],
+      strengths: (r.strengths as unknown as StrengthItem[]) ?? [],
       founderQuestions: (r.founderQuestions as string[]) ?? [],
       investorReadiness: {
         fundingReadinessScore: r.fundingReadinessScore,

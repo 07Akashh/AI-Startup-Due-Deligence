@@ -1,42 +1,61 @@
-import { AgentState, REPORT_SECTION_QUERIES, ReportSectionKey } from './state';
+import { AgentState, ReportSectionKey, REPORT_SECTION_QUERIES } from './state';
 import { emitAgentEvent } from '../services/streamService';
 import { updateJobStatus } from '../services/jobService';
-import { chunkText, upsertChunks, queryChunks } from '../services/embeddingService';
+import { chunkText, upsertChunks, queryChunks, TextChunk } from '../services/embeddingService';
 import { miniModel } from '../config/llm';
+import { ChatPromptTemplate } from '@langchain/core/prompts';
 
 /**
- * Knowledge Agent — embeds extracted content into Pinecone, generates 
- * synthetic industry research passes for validation, and retrieves context.
+ * Knowledge Agent — LangChain RAG pipeline:
+ * 1. Executes synthetic market research pass via LangChain Prompt Templates.
+ * 2. Indexes extracted content chunks into Pinecone vector store.
+ * 3. Executes multi-section RAG retrieval for due diligence sections.
  */
 export async function knowledgeAgent(state: AgentState): Promise<Partial<AgentState>> {
   const { jobId, vectorNamespace } = state;
 
-  await emitAgentEvent(jobId, 'knowledge', 'start', 'Building vector knowledge base and performing independent research...');
+  await emitAgentEvent(
+    jobId,
+    'knowledge',
+    'start',
+    'Building vector knowledge base and performing independent research...'
+  );
   await updateJobStatus(jobId, 'EMBEDDING', 'knowledge');
 
-  const allChunks: ReturnType<typeof chunkText>[number][] = [];
+  const allChunks: TextChunk[] = [];
 
-  // ── 1. Independent Research Pass ──────────────────────────────────────────
-  
-  // Try to grab a quick summary of what the company does from the raw text
+  // ── 1. Independent Research Pass via LangChain ────────────────────────────
+
   const rawContext = [
     state.pitchDeckContent?.rawText?.slice(0, 1500) || '',
-    state.websiteContent?.markdownContent?.slice(0, 1500) || ''
+    state.websiteContent?.markdownContent?.slice(0, 1500) || '',
   ].join('\n');
 
   if (rawContext.trim().length > 100) {
     await emitAgentEvent(jobId, 'knowledge', 'progress', 'Performing independent AI market research...');
     try {
-      const researchPrompt = `Based on the following startup context, identify their primary industry and generate a comprehensive "Synthetic Market Research Report". Include typical CAC, LTV, average burn rates, market multiples, emerging trends, and top 5 global competitors in this space. Do not hallucinate about the startup itself, focus on the INDUSTRY.\n\nContext:\n${rawContext}`;
-      
-      const researchResponse = await miniModel.invoke(researchPrompt);
-      const syntheticText = typeof researchResponse.content === 'string' ? researchResponse.content : JSON.stringify(researchResponse.content);
-      
+      const researchPromptTemplate = ChatPromptTemplate.fromMessages([
+        [
+          'system',
+          'You are a senior VC sector researcher. Based on the startup context provided, identify their primary industry and generate a comprehensive "Synthetic Market Research Report". Include typical CAC, LTV, average burn rates, market multiples, emerging trends, and top 5 global/regional competitors in this space. Focus strictly on INDUSTRY reality, benchmarks, and landscape.',
+        ],
+        ['human', 'Startup Context:\n{context}'],
+      ]);
+
+      const chain = researchPromptTemplate.pipe(miniModel);
+      const researchResponse = await chain.invoke({ context: rawContext });
+
+      const syntheticText =
+        typeof researchResponse.content === 'string'
+          ? researchResponse.content
+          : JSON.stringify(researchResponse.content);
+
       const syntheticChunks = chunkText(syntheticText, jobId, 'synthetic_research');
       allChunks.push(...syntheticChunks);
       await emitAgentEvent(jobId, 'knowledge', 'progress', '✓ Synthetic industry benchmarks generated');
-    } catch (err: any) {
-      console.warn('[knowledgeAgent] Synthetic research failed:', err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn('[knowledgeAgent] Synthetic research failed:', msg);
     }
   }
 
@@ -76,16 +95,20 @@ export async function knowledgeAgent(state: AgentState): Promise<Partial<AgentSt
 
   // ── 3. Query RAG context for each report section ────────────────────────────
 
-  await emitAgentEvent(jobId, 'knowledge', 'progress', 'Retrieving relevant context for each report section...');
+  await emitAgentEvent(
+    jobId,
+    'knowledge',
+    'progress',
+    'Retrieving relevant context for each report section...'
+  );
 
   const ragContext: Partial<Record<ReportSectionKey, string[]>> = {};
-
   const sectionKeys = Object.keys(REPORT_SECTION_QUERIES) as ReportSectionKey[];
 
   await Promise.all(
     sectionKeys.map(async (section) => {
       const query = REPORT_SECTION_QUERIES[section];
-      const results = await queryChunks(query, vectorNamespace, 10); // increased to 10 for more synthetic coverage
+      const results = await queryChunks(query, vectorNamespace, 10);
       ragContext[section] = results;
     })
   );

@@ -1,17 +1,9 @@
 import { AgentState } from './state';
 import { emitAgentEvent } from '../services/streamService';
 import { updateJobStatus } from '../services/jobService';
-import { DueDiligenceReport } from '@startupai/shared';
-import {
-  runDueDiligenceReasoningAgent,
-  ExtractedStartupData,
-  FinancialData as AgentFinancialData,
-  RetrievedKnowledge,
-  type FullDueDiligenceOutput,
-} from './dueDiligenceReasoningAgent';
+import { DueDiligenceReport, ExtractedStartupData, FinancialData } from '@startupai/shared';
+import { RetrievedKnowledge } from './dueDiligenceReasoningAgent';
 import { runDueDiligenceValidatorAgent } from './dueDiligenceValidatorAgent';
-
-// ─── Required sections for structural check ───────────────────────────────────
 
 const REQUIRED_SECTIONS: Array<keyof DueDiligenceReport> = [
   'startupSummary',
@@ -27,18 +19,13 @@ const REQUIRED_SECTIONS: Array<keyof DueDiligenceReport> = [
   'recommendation',
 ];
 
-// ─── Validator Agent (Graph Node) ────────────────────────────────────────────
-
 /**
  * Validator Agent — Two-stage quality gate:
- * Stage 1: Structural validation (required fields, minimum counts)
+ * Stage 1: Structural validation (required fields, non-empty metrics, real competitor check)
  * Stage 2: AI-powered audit via DueDiligenceValidatorAgent (hallucination & completeness check)
- *
- * If Stage 1 passes and AI audit approves → proceed to action.
- * If validation fails and retries remain → route back to reasoning.
  */
 export async function validatorAgent(state: AgentState): Promise<Partial<AgentState>> {
-  const { jobId, reportDraft, pitchDeckContent, websiteContent, financialData, ragContext } = state;
+  const { jobId, reportDraft, pitchDeckContent, financialData, ragContext } = state;
 
   await emitAgentEvent(jobId, 'validator', 'start', 'Running 2-Stage Validation Pipeline...');
   await updateJobStatus(jobId, 'VALIDATING', 'validator');
@@ -49,22 +36,26 @@ export async function validatorAgent(state: AgentState): Promise<Partial<AgentSt
 
   await emitAgentEvent(jobId, 'validator', 'progress', 'Stage 1: Structural integrity check...');
 
-  // Required section checks
   for (const section of REQUIRED_SECTIONS) {
     if (reportDraft[section] === undefined || reportDraft[section] === null) {
       errors.push(`Missing required section: ${section}`);
     }
   }
 
-  // Helper to check for generic placeholder strings
-  const isUnknown = (val: any) => {
+  const isUnknown = (val: unknown): boolean => {
     if (val === undefined || val === null) return true;
     const str = String(val).toLowerCase().trim();
-    return str === 'unknown' || str === 'n/a' || str === 'tbd' || str === 'undefined' || str === 'null' || str === '';
+    return (
+      str === 'unknown' ||
+      str === 'n/a' ||
+      str === 'tbd' ||
+      str === 'undefined' ||
+      str === 'null' ||
+      str === ''
+    );
   };
 
-  // Helper to check for generic competitor names
-  const isGenericCompetitor = (name: any) => {
+  const isGenericCompetitor = (name: unknown): boolean => {
     if (!name) return true;
     const lower = String(name).toLowerCase().trim();
     return (
@@ -76,7 +67,6 @@ export async function validatorAgent(state: AgentState): Promise<Partial<AgentSt
     );
   };
 
-  // Check critical fields for "Unknown" or "N/A" placeholders
   if (isUnknown(reportDraft.startupSummary?.stage)) {
     errors.push('Startup stage is unknown or N/A. You must evaluate and define a realistic stage.');
   }
@@ -90,7 +80,6 @@ export async function validatorAgent(state: AgentState): Promise<Partial<AgentSt
     errors.push('Startup team size is unknown or N/A. Estimate a realistic team size.');
   }
 
-  // Market size checks
   if (isUnknown(reportDraft.marketOpportunity?.tam)) {
     errors.push('Market opportunity TAM is unknown or N/A. You must provide a realistic estimation.');
   }
@@ -101,15 +90,6 @@ export async function validatorAgent(state: AgentState): Promise<Partial<AgentSt
     errors.push('Market opportunity SOM is unknown or N/A. Mathematically estimate SOM as 2-5% of SAM/TAM.');
   }
 
-  // Investor readiness checks
-  if (isUnknown(reportDraft.investorReadiness?.recommendedRaiseAmount)) {
-    errors.push('Investor readiness Recommended Raise Amount is unknown or N/A. Calculate a realistic stage-appropriate raise amount.');
-  }
-  if (isUnknown(reportDraft.investorReadiness?.suggestedValuationRange)) {
-    errors.push('Investor readiness Suggested Valuation Range is unknown or N/A. Suggest a realistic valuation range based on standard exit multiple benchmarks.');
-  }
-
-  // Competitor validation checks
   if (Array.isArray(reportDraft.competitors)) {
     for (const c of reportDraft.competitors) {
       if (isGenericCompetitor(c.name)) {
@@ -124,27 +104,22 @@ export async function validatorAgent(state: AgentState): Promise<Partial<AgentSt
     }
   }
 
-  // Competitor depth check
   if (!reportDraft.competitors || reportDraft.competitors.length < 2) {
     errors.push('Competitor analysis incomplete — requires at least 2 competitors');
   }
 
-  // Risk depth check
   if (!reportDraft.risks || reportDraft.risks.length < 3) {
     errors.push('Risk analysis too shallow — requires at least 3 risks');
   }
 
-  // Financial check
   if (!reportDraft.financialInsights) {
     errors.push('Financial insights section is missing');
   }
 
-  // Market check
   if (!reportDraft.marketOpportunity?.tam) {
     errors.push('Market opportunity missing TAM');
   }
 
-  // Investor readiness check
   if (!reportDraft.investorReadiness || !reportDraft.vcIntelligence) {
     errors.push('Missing Investor Readiness or VC Intelligence');
   }
@@ -152,7 +127,10 @@ export async function validatorAgent(state: AgentState): Promise<Partial<AgentSt
   const structuralPassed = errors.length === 0;
 
   if (!structuralPassed) {
-    await emitAgentEvent(jobId, 'validator', 'progress',
+    await emitAgentEvent(
+      jobId,
+      'validator',
+      'progress',
       `Stage 1 failed: ${errors.slice(0, 3).join('; ')}${errors.length > 3 ? '...' : ''}`
     );
 
@@ -164,8 +142,10 @@ export async function validatorAgent(state: AgentState): Promise<Partial<AgentSt
       };
     }
 
-    // Max retries — proceed anyway with warnings
-    await emitAgentEvent(jobId, 'validator', 'progress',
+    await emitAgentEvent(
+      jobId,
+      'validator',
+      'progress',
       `Max retries reached. Proceeding with partial report. Issues: ${errors.join('; ')}`
     );
     return { validationErrors: errors, shouldRetry: false };
@@ -185,39 +165,49 @@ export async function validatorAgent(state: AgentState): Promise<Partial<AgentSt
       founded: reportDraft.startupSummary?.founded,
       location: reportDraft.startupSummary?.location,
       teamSize: reportDraft.startupSummary?.teamSize,
-      keyHighlights: (reportDraft.startupSummary?.keyHighlights || []) as string[],
+      keyHighlights: reportDraft.startupSummary?.keyHighlights || [],
     };
 
-    const financialInput: AgentFinancialData = {
-      summary: financialData?.summary,
-      currentRevenue: financialData?.metrics?.revenue?.at(-1)?.toString(),
-      burnRate: financialData?.metrics?.burnRate?.at(-1)?.toString(),
-      runway: financialData?.metrics?.runway?.toString(),
-      grossMargin: financialData?.metrics?.grossMargin?.toString(),
+    const financialInput: FinancialData = {
+      rawRows: financialData?.rawRows || [],
+      columns: financialData?.columns || [],
+      metrics: financialData?.metrics || {},
+      summary: financialData?.summary || '',
+      chartData: financialData?.chartData || [],
     };
 
-    const knowledge: RetrievedKnowledge = {
-      context: Object.values(ragContext ?? {}).flat() as string[],
-    };
+    const contextChunks: string[] = Object.values(ragContext ?? {}).flatMap(
+      (chunks) => chunks || []
+    );
+    const knowledge: RetrievedKnowledge = { context: contextChunks };
 
     const auditResult = await runDueDiligenceValidatorAgent(
       reportDraft,
       startupData,
       financialInput,
-      knowledge,
+      knowledge
     );
 
-    await emitAgentEvent(jobId, 'validator', 'progress',
+    await emitAgentEvent(
+      jobId,
+      'validator',
+      'progress',
       `✓ AI Audit complete. Confidence: ${(auditResult.confidence * 100).toFixed(0)}% | Approved: ${auditResult.approved}`
     );
 
     if (auditResult.issues.length > 0) {
-      await emitAgentEvent(jobId, 'validator', 'progress',
+      await emitAgentEvent(
+        jobId,
+        'validator',
+        'progress',
         `⚠ Audit flagged ${auditResult.issues.length} issue(s): ${auditResult.issues.slice(0, 2).join('; ')}`
       );
     }
 
-    await emitAgentEvent(jobId, 'validator', 'complete',
+    await emitAgentEvent(
+      jobId,
+      'validator',
+      'complete',
       `✓ Report validated. AI Confidence: ${(auditResult.confidence * 100).toFixed(0)}%`
     );
 
@@ -225,11 +215,13 @@ export async function validatorAgent(state: AgentState): Promise<Partial<AgentSt
       validationErrors: auditResult.issues,
       shouldRetry: false,
     };
-
-  } catch (err: any) {
-    // AI audit failure — don't block the pipeline
-    console.error('[validatorAgent] AI audit failed, proceeding:', err.message);
-    await emitAgentEvent(jobId, 'validator', 'complete',
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[validatorAgent] AI audit failed, proceeding:', msg);
+    await emitAgentEvent(
+      jobId,
+      'validator',
+      'complete',
       '✓ Stage 1 passed. AI audit skipped (service error). Proceeding to finalization.'
     );
     return { validationErrors: [], shouldRetry: false };

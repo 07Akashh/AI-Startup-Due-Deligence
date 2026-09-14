@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { subscribeToJobEvents } from '../services/streamService';
 import { getJob } from '../services/jobService';
 import { prisma } from '../config/database';
+import { Prisma } from '@prisma/client';
 
 const router = Router();
 
@@ -21,9 +22,8 @@ router.get('/:jobId/events', async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, error: 'Job not found' });
     }
 
-    const whereClause: any = { jobId };
+    const whereClause: Prisma.AgentEventWhereInput = { jobId };
     if (after) {
-      // If after is an ISO timestamp or date
       const afterDate = new Date(after);
       if (!isNaN(afterDate.getTime())) {
         whereClause.createdAt = { gt: afterDate };
@@ -50,13 +50,14 @@ router.get('/:jobId/events', async (req: Request, res: Response) => {
           agent: event.agent,
           eventType: event.eventType,
           message: event.message,
-          metadata: event.metadata,
+          metadata: event.metadata as Record<string, unknown> | undefined,
           createdAt: event.createdAt.toISOString(),
         })),
       },
     });
-  } catch (err: any) {
-    return res.status(500).json({ success: false, error: err.message });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ success: false, error: msg });
   }
 });
 
@@ -66,14 +67,12 @@ router.get('/:jobId/events', async (req: Request, res: Response) => {
 router.get('/:jobId', async (req: Request, res: Response) => {
   const jobId = req.params.jobId as string;
 
-  // Validate job exists
   const job = await getJob(jobId);
   if (!job) {
     res.status(404).json({ success: false, error: 'Job not found' });
     return;
   }
 
-  // Send any historical events first
   const pastEvents = await prisma.agentEvent.findMany({
     where: { jobId },
     orderBy: { createdAt: 'asc' },
@@ -86,7 +85,6 @@ router.get('/:jobId', async (req: Request, res: Response) => {
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
-  // Replay historical events
   for (const event of pastEvents) {
     res.write(`id: ${event.id}\n`);
     res.write(`event: agent_update\n`);
@@ -103,14 +101,12 @@ router.get('/:jobId', async (req: Request, res: Response) => {
     );
   }
 
-  // If already complete, close
   if (job.status === 'COMPLETE' || job.status === 'FAILED') {
     res.write('event: done\ndata: {}\n\n');
     res.end();
     return;
   }
 
-  // Subscribe to live events
   subscribeToJobEvents(jobId as string, res);
 });
 

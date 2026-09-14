@@ -9,13 +9,17 @@ import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
 import { UnauthorizedError } from '../types/errors';
 
+export interface AuthenticatedRequest extends Request {
+  userId?: string;
+}
+
 interface JWTPayload {
   userId: string;
   iat: number;
   exp: number;
 }
 
-export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
+export function optionalAuth(req: AuthenticatedRequest, _res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     next();
@@ -25,14 +29,14 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
   const token = authHeader.slice(7);
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET) as JWTPayload;
-    (req as any).userId = decoded.userId;
+    req.userId = decoded.userId;
   } catch {
     // Invalid token — continue without auth (not blocking)
   }
   next();
 }
 
-export function requireAuth(req: Request, _res: Response, next: NextFunction): void {
+export function requireAuth(req: AuthenticatedRequest, _res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {
     next(new UnauthorizedError('Authentication required'));
@@ -42,9 +46,9 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction): v
   const token = authHeader.slice(7);
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET) as JWTPayload;
-    (req as any).userId = decoded.userId;
+    req.userId = decoded.userId;
     next();
-  } catch (err: any) {
+  } catch {
     next(new UnauthorizedError('Invalid or expired token'));
   }
 }

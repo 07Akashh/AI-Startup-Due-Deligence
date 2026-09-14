@@ -5,7 +5,8 @@ const { combine, timestamp, errors, json, colorize, printf } = winston.format;
 
 // ─── Dev console format ───────────────────────────────────────────────────────
 
-const devFormat = printf(({ level, message, timestamp: ts, stack, service, ...meta }: any) => {
+const devFormat = printf((info) => {
+  const { level, message, timestamp: ts, stack, service, ...meta } = info;
   const metaStr = Object.keys(meta).length ? ` \x1b[90m${JSON.stringify(meta)}\x1b[0m` : '';
   return `${ts} [${level}] ${message}${metaStr}${stack ? `\n${stack}` : ''}`;
 });
