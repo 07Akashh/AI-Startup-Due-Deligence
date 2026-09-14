@@ -1,4 +1,3 @@
-import { OpenAI } from 'openai';
 import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
 import { ChatOpenRouter } from '@langchain/openrouter';
 import { ChatGroq } from '@langchain/groq';
@@ -7,12 +6,6 @@ import { logger } from '../utils/logger';
 import { RedisLangChainCache } from './redisCache';
 
 const cache = new RedisLangChainCache();
-
-// ─── Native OpenAI Client (Used for Vision & raw calls) ─────────────────────────
-export const openaiClient = new OpenAI({
-  apiKey: env.OPENAI_API_KEY || 'dummy-key',
-  ...(env.OPENAI_ORG_ID && { organization: env.OPENAI_ORG_ID }),
-});
 
 // ─── Re-export ChatOpenRouter from official @langchain/openrouter ─────────────
 export { ChatOpenRouter };

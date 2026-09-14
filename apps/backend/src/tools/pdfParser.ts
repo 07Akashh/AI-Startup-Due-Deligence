@@ -1,5 +1,6 @@
 import pdfParse from 'pdf-parse';
-import { openaiClient } from '../config/llm';
+import { HumanMessage } from '@langchain/core/messages';
+import { extractionModel } from '../config/llm';
 import { downloadFromStorage } from '../services/storageService';
 
 export interface PitchDeckContent {
@@ -10,7 +11,7 @@ export interface PitchDeckContent {
 }
 
 /**
- * Extract text from a PDF. Falls back to GPT-4o Vision if text extraction
+ * Extract text from a PDF. Falls back to AI Vision if text extraction
  * yields less than 200 characters per page (image-heavy slide decks).
  */
 export async function parsePDF(
@@ -66,28 +67,35 @@ Please extract and return:
 
 Return as structured text with clear section headers.`;
 
-  const response = await openaiClient.chat.completions.create({
-    model: 'gpt-4o',
-    messages: [
-      {
-        role: 'user',
-        content: [
-          { type: 'text', text: prompt },
-          ...(pdfUrl ? [{ type: 'image_url' as const, image_url: { url: pdfUrl } }] : []),
-        ],
-      },
-    ],
-    max_tokens: 4000,
-  });
+  try {
+    const message = new HumanMessage({
+      content: [
+        { type: 'text', text: prompt },
+        ...(pdfUrl ? [{ type: 'image_url' as const, image_url: { url: pdfUrl } }] : []),
+      ],
+    });
 
-  const extracted = response.choices[0].message.content ?? fallbackText;
+    const response = await extractionModel.invoke([message]);
+    const extracted =
+      typeof response.content === 'string'
+        ? response.content
+        : JSON.stringify(response.content) || fallbackText;
 
-  return {
-    rawText: extracted,
-    pages,
-    sections: parseSections(extracted),
-    source: 'vision',
-  };
+    return {
+      rawText: extracted,
+      pages,
+      sections: parseSections(extracted),
+      source: 'vision',
+    };
+  } catch (err: unknown) {
+    console.warn('[pdfParser] Vision extraction failed, using fallback text:', err);
+    return {
+      rawText: fallbackText,
+      pages,
+      sections: parseSections(fallbackText),
+      source: 'text',
+    };
+  }
 }
 
 function parseSections(text: string): Record<string, string> {
