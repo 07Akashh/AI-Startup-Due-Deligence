@@ -41,30 +41,56 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-export async function uploadPitchDeck(file: File) {
+/**
+ * Helper to upload a file directly to Cloudinary using signed signature.
+ * Completely avoids Vercel's 4.5MB serverless payload limit.
+ */
+async function uploadToCloudinaryDirect(
+  file: File,
+  folder: string,
+  fallbackRoute: string
+): Promise<{ url: string; key: string; filename: string }> {
   try {
-    const { data } = await api.get('/upload/presign', {
+    // 1. Get signed credentials from backend
+    const { data } = await api.get('/upload/signature', {
       params: {
         filename: file.name,
-        mimeType: file.type,
-        folder: 'pitch-decks',
+        folder,
       },
     });
 
-    const { uploadUrl, key, downloadUrl } = data.data;
+    const { signature, timestamp, apiKey, cloudName, publicId, uploadUrl, uploadPreset } =
+      data.data;
 
-    await axios.put(uploadUrl, file, {
-      headers: {
-        'Content-Type': file.type,
-      },
+    // 2. Direct upload to Cloudinary API
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('api_key', apiKey);
+    formData.append('timestamp', String(timestamp));
+    formData.append('signature', signature);
+    formData.append('folder', folder);
+    if (publicId) formData.append('public_id', publicId);
+    if (uploadPreset) formData.append('upload_preset', uploadPreset);
+
+    const targetUrl =
+      uploadUrl || `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
+
+    const cloudinaryRes = await axios.post(targetUrl, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
     });
 
-    return { url: downloadUrl, key, filename: file.name };
+    return {
+      url: cloudinaryRes.data.secure_url || cloudinaryRes.data.url,
+      key: cloudinaryRes.data.public_id,
+      filename: file.name,
+    };
   } catch (err) {
-    console.error('Presigned upload failed, falling back to server upload:', err);
+    console.error('Direct Cloudinary upload failed, falling back to server stream upload:', err);
+    // Fallback: stream through backend route
     const form = new FormData();
     form.append('file', file);
-    const { data } = await api.post('/upload/pitch-deck', form, {
+    const { data } = await api.post(fallbackRoute, form, {
       headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 120000,
     });
@@ -72,35 +98,12 @@ export async function uploadPitchDeck(file: File) {
   }
 }
 
+export async function uploadPitchDeck(file: File) {
+  return uploadToCloudinaryDirect(file, 'pitch-decks', '/upload/pitch-deck');
+}
+
 export async function uploadFinancials(file: File) {
-  try {
-    const { data } = await api.get('/upload/presign', {
-      params: {
-        filename: file.name,
-        mimeType: file.type,
-        folder: 'financials',
-      },
-    });
-
-    const { uploadUrl, key, downloadUrl } = data.data;
-
-    await axios.put(uploadUrl, file, {
-      headers: {
-        'Content-Type': file.type,
-      },
-    });
-
-    return { url: downloadUrl, key, filename: file.name };
-  } catch (err) {
-    console.error('Presigned upload failed, falling back to server upload:', err);
-    const form = new FormData();
-    form.append('file', file);
-    const { data } = await api.post('/upload/financials', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 60000,
-    });
-    return data.data as { url: string; key: string; filename: string };
-  }
+  return uploadToCloudinaryDirect(file, 'financials', '/upload/financials');
 }
 
 export async function createJob(payload: {

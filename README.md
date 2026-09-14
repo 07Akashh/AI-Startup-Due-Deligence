@@ -116,12 +116,11 @@ OPENAI_API_KEY="sk-..."
 PINECONE_API_KEY="pcsk-..."
 PINECONE_INDEX_NAME="startupai-due-diligence"
 
-# AWS S3 / Cloudflare R2 (Object Storage)
-AWS_ACCESS_KEY_ID="your-access-key"
-AWS_SECRET_ACCESS_KEY="your-secret-key"
-AWS_REGION="us-east-1"
-AWS_BUCKET_NAME="startupai-assets"
-# AWS_ENDPOINT="https://<account-id>.r2.cloudflarestorage.com" # Optional Cloudflare R2 Override
+# Cloudinary (Object & File Storage)
+CLOUDINARY_CLOUD_NAME="your-cloud-name"
+CLOUDINARY_API_KEY="your-api-key"
+CLOUDINARY_API_SECRET="your-api-secret"
+# CLOUDINARY_UPLOAD_PRESET="optional-preset"
 ```
 
 ### Frontend Environment Variables (`apps/frontend/.env.local`)
@@ -135,8 +134,8 @@ NEXT_PUBLIC_API_URL="http://localhost:4000"
 
 ### 1. Prerequisites
 - **Node.js**: `v20` or higher
-- **PostgreSQL**: Local running database instance
-- **Object Storage**: S3 bucket or Cloudflare R2 bucket
+- **Database**: PostgreSQL / MongoDB running instance
+- **Object Storage**: Cloudinary account
 - **Pinecone**: Serverless index set to **1536 dimensions** with **Cosine Similarity** metric
 
 ### 2. Installation

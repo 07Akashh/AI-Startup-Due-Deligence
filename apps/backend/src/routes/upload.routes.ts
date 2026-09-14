@@ -1,27 +1,59 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
-import { uploadFileToStorage, getPresignedUploadUrl } from '../services/storageService';
+import {
+  uploadStreamToStorage,
+  getCloudinaryUploadSignature,
+  getPresignedUploadUrl,
+} from '../services/storageService';
 import { ApiResponse, UploadResponse } from '@startupai/shared';
 
 const router = Router();
+
+// Memory storage for small file fallback; streams directly without disk writes
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
 });
 
-router.get('/presign', async (req: Request, res: Response) => {
+/**
+ * GET /api/v1/upload/signature
+ * Generates Cloudinary signed parameters for direct client streaming uploads.
+ * This completely avoids hitting Vercel's 4.5MB serverless payload limit.
+ */
+router.get('/signature', async (req: Request, res: Response) => {
   try {
-    const { filename, mimeType, folder } = req.query as { filename?: string; mimeType?: string; folder?: string };
-    if (!filename || !mimeType) {
-      return res.status(400).json({ success: false, error: 'filename and mimeType are required' });
-    }
-    const result = await getPresignedUploadUrl(filename, mimeType, folder || 'uploads');
+    const { folder, filename } = req.query as { folder?: string; filename?: string };
+    const result = await getCloudinaryUploadSignature(folder || 'uploads', filename);
     return res.json({ success: true, data: result });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });
   }
 });
 
+/**
+ * GET /api/v1/upload/presign (alias for signature)
+ */
+router.get('/presign', async (req: Request, res: Response) => {
+  try {
+    const { filename, mimeType, folder } = req.query as {
+      filename?: string;
+      mimeType?: string;
+      folder?: string;
+    };
+    if (!filename) {
+      return res.status(400).json({ success: false, error: 'filename is required' });
+    }
+    const result = await getPresignedUploadUrl(filename, mimeType || '', folder || 'uploads');
+    return res.json({ success: true, data: result });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * POST /api/v1/upload/pitch-deck
+ * Streams pitch deck to Cloudinary using upload_stream.
+ */
 router.post(
   '/pitch-deck',
   upload.single('file'),
@@ -34,7 +66,7 @@ router.post(
         return res.status(400).json({ success: false, error: 'Only PDF files are accepted' });
       }
 
-      const result = await uploadFileToStorage(
+      const result = await uploadStreamToStorage(
         req.file.buffer,
         req.file.originalname,
         req.file.mimetype,
@@ -48,6 +80,10 @@ router.post(
   }
 );
 
+/**
+ * POST /api/v1/upload/financials
+ * Streams financial CSV to Cloudinary using upload_stream.
+ */
 router.post(
   '/financials',
   upload.single('file'),
@@ -60,7 +96,7 @@ router.post(
         return res.status(400).json({ success: false, error: 'Only CSV files are accepted' });
       }
 
-      const result = await uploadFileToStorage(
+      const result = await uploadStreamToStorage(
         req.file.buffer,
         req.file.originalname,
         req.file.mimetype,

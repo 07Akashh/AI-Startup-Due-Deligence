@@ -31,14 +31,29 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response<ApiRespons
       return;
     }
 
-    // Extract S3 keys from URLs if provided
+    // Extract storage key or public ID from URLs if provided
     const extractKey = (url?: string) => {
       if (!url) return undefined;
       try {
+        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+          return url;
+        }
         const u = new URL(url);
-        return u.pathname.slice(1); // Remove leading /
+        // If Cloudinary URL
+        if (u.hostname.includes('cloudinary.com')) {
+          const parts = u.pathname.split('/');
+          const uploadIdx = parts.findIndex(p => p === 'upload');
+          if (uploadIdx !== -1 && uploadIdx + 1 < parts.length) {
+            const subParts = parts.slice(uploadIdx + 1);
+            if (subParts[0]?.startsWith('v') && /^\d+$/.test(subParts[0].slice(1))) {
+              subParts.shift();
+            }
+            return subParts.join('/');
+          }
+        }
+        return u.pathname.slice(1); // Fallback: remove leading /
       } catch {
-        return undefined;
+        return url;
       }
     };
 
@@ -58,10 +73,12 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response<ApiRespons
       try {
         await enqueueJob({
           jobId: job.id,
-          pitchDeckS3Key: extractKey(pitchDeckUrl),
+          pitchDeckStorageKey: extractKey(pitchDeckUrl),
+          pitchDeckUrl,
           pitchDeckSignedUrl: pitchDeckUrl,
           websiteUrl,
-          financialCsvS3Key: extractKey(financialCsvUrl),
+          financialCsvStorageKey: extractKey(financialCsvUrl),
+          financialCsvUrl,
           startupStage,
         });
       } catch (err: any) {

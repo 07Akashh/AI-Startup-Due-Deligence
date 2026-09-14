@@ -6,10 +6,14 @@ import { WebsiteContent } from '../tools/webScraper';
 export interface AgentState {
   jobId: string;
   // Inputs
-  pitchDeckS3Key?: string;
+  pitchDeckStorageKey?: string;
+  pitchDeckS3Key?: string; // backward compat
   pitchDeckSignedUrl?: string;
+  pitchDeckUrl?: string;
   websiteUrl?: string;
-  financialCsvS3Key?: string;
+  financialCsvStorageKey?: string;
+  financialCsvS3Key?: string; // backward compat
+  financialCsvUrl?: string;
   startupStage?: string;
 
   // Extraction results

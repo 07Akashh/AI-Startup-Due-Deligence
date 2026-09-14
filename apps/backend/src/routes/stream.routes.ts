@@ -5,7 +5,64 @@ import { prisma } from '../config/database';
 
 const router = Router();
 
-// GET /api/v1/stream/:jobId — SSE stream of agent events
+/**
+ * GET /api/v1/stream/:jobId/events
+ * Vercel-compatible polling endpoint to fetch agent events directly from database.
+ * Used as a zero-failure fallback for environments where persistent WebSocket/SSE
+ * connections are closed or restricted by serverless execution limits.
+ */
+router.get('/:jobId/events', async (req: Request, res: Response) => {
+  const jobId = req.params.jobId as string;
+  const after = req.query.after as string | undefined;
+
+  try {
+    const job = await getJob(jobId);
+    if (!job) {
+      return res.status(404).json({ success: false, error: 'Job not found' });
+    }
+
+    const whereClause: any = { jobId };
+    if (after) {
+      // If after is an ISO timestamp or date
+      const afterDate = new Date(after);
+      if (!isNaN(afterDate.getTime())) {
+        whereClause.createdAt = { gt: afterDate };
+      }
+    }
+
+    const events = await prisma.agentEvent.findMany({
+      where: whereClause,
+      orderBy: { createdAt: 'asc' },
+    });
+
+    return res.json({
+      success: true,
+      data: {
+        jobId,
+        status: job.status,
+        currentAgent: job.currentAgent,
+        errorMessage: job.errorMessage,
+        isComplete: job.status === 'COMPLETE',
+        isFailed: job.status === 'FAILED',
+        events: events.map((event) => ({
+          id: event.id,
+          jobId: event.jobId,
+          agent: event.agent,
+          eventType: event.eventType,
+          message: event.message,
+          metadata: event.metadata,
+          createdAt: event.createdAt.toISOString(),
+        })),
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+/**
+ * GET /api/v1/stream/:jobId — SSE stream of agent events with keep-alive heartbeats
+ */
 router.get('/:jobId', async (req: Request, res: Response) => {
   const jobId = req.params.jobId as string;
 
@@ -23,7 +80,7 @@ router.get('/:jobId', async (req: Request, res: Response) => {
   });
 
   res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('X-Accel-Buffering', 'no');

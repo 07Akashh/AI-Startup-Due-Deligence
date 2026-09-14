@@ -48,10 +48,14 @@ export function buildAgentGraph() {
   const graph = new StateGraph<AgentState>({
     channels: {
       jobId: { value: (x: string, y: string) => y ?? x, default: () => '' },
+      pitchDeckStorageKey: { value: (x: any, y: any) => y ?? x, default: () => undefined },
       pitchDeckS3Key: { value: (x: any, y: any) => y ?? x, default: () => undefined },
       pitchDeckSignedUrl: { value: (x: any, y: any) => y ?? x, default: () => undefined },
+      pitchDeckUrl: { value: (x: any, y: any) => y ?? x, default: () => undefined },
       websiteUrl: { value: (x: any, y: any) => y ?? x, default: () => undefined },
+      financialCsvStorageKey: { value: (x: any, y: any) => y ?? x, default: () => undefined },
       financialCsvS3Key: { value: (x: any, y: any) => y ?? x, default: () => undefined },
+      financialCsvUrl: { value: (x: any, y: any) => y ?? x, default: () => undefined },
       pitchDeckContent: { value: (x: any, y: any) => y ?? x, default: () => undefined },
       websiteContent: { value: (x: any, y: any) => y ?? x, default: () => undefined },
       financialData: { value: (x: any, y: any) => y ?? x, default: () => undefined },

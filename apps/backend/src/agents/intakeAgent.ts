@@ -13,7 +13,19 @@ export async function intakeAgent(state: AgentState): Promise<Partial<AgentState
 
   const errors: string[] = [];
 
-  if (!state.pitchDeckS3Key && !state.websiteUrl && !state.financialCsvS3Key) {
+  const hasPitchDeck = Boolean(
+    state.pitchDeckStorageKey ||
+    state.pitchDeckSignedUrl ||
+    state.pitchDeckUrl ||
+    state.pitchDeckS3Key
+  );
+  const hasFinancials = Boolean(
+    state.financialCsvStorageKey ||
+    state.financialCsvUrl ||
+    state.financialCsvS3Key
+  );
+
+  if (!hasPitchDeck && !state.websiteUrl && !hasFinancials) {
     errors.push('At least one input source is required');
   }
 

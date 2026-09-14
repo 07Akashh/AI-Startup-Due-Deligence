@@ -14,24 +14,26 @@ export interface PitchDeckContent {
  * yields less than 200 characters per page (image-heavy slide decks).
  */
 export async function parsePDF(
-  s3Key: string,
-  signedUrl: string
+  storageKeyOrUrl: string,
+  fileUrl?: string
 ): Promise<PitchDeckContent> {
-  const buffer = await downloadFromStorage(s3Key);
+  const buffer = await downloadFromStorage(storageKeyOrUrl || fileUrl || '');
+
+  const resolvedUrl = fileUrl || storageKeyOrUrl;
 
   let data: pdfParse.Result;
   try {
     data = await pdfParse(buffer);
   } catch {
     // Vision fallback for corrupt/image-only PDFs
-    return visionExtract(signedUrl, 0, '');
+    return visionExtract(resolvedUrl, 0, '');
   }
 
   const avgCharsPerPage = data.text.length / Math.max(data.numpages, 1);
 
   if (avgCharsPerPage < 200) {
     // Image-heavy deck — use vision
-    return visionExtract(signedUrl, data.numpages, data.text);
+    return visionExtract(resolvedUrl, data.numpages, data.text);
   }
 
   return {

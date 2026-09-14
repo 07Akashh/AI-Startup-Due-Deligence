@@ -25,8 +25,8 @@ const COLUMN_MAP: Record<string, string[]> = {
   grossMargin: ['gross_margin', 'margin', 'gm'],
 };
 
-export async function parseCSV(s3Key: string): Promise<FinancialData> {
-  const buffer = await downloadFromStorage(s3Key);
+export async function parseCSV(storageKeyOrUrl: string): Promise<FinancialData> {
+  const buffer = await downloadFromStorage(storageKeyOrUrl);
   const csvText = buffer.toString('utf-8');
 
   let rows: Record<string, string>[];

@@ -19,12 +19,19 @@ export async function extractionAgent(state: AgentState): Promise<Partial<AgentS
   // Run all extractions in parallel
   const tasks: Promise<void>[] = [];
 
-  if (state.pitchDeckS3Key && state.pitchDeckSignedUrl) {
+  const pitchDeckTarget =
+    state.pitchDeckStorageKey ||
+    state.pitchDeckUrl ||
+    state.pitchDeckSignedUrl ||
+    state.pitchDeckS3Key;
+
+  if (pitchDeckTarget) {
     tasks.push(
       (async () => {
         await emitAgentEvent(jobId, 'extraction', 'progress', 'Parsing pitch deck PDF...');
         try {
-          updates.pitchDeckContent = await parsePDF(state.pitchDeckS3Key!, state.pitchDeckSignedUrl!);
+          const fileUrl = state.pitchDeckUrl || state.pitchDeckSignedUrl || pitchDeckTarget;
+          updates.pitchDeckContent = await parsePDF(pitchDeckTarget, fileUrl);
           await emitAgentEvent(
             jobId,
             'extraction',
@@ -57,12 +64,17 @@ export async function extractionAgent(state: AgentState): Promise<Partial<AgentS
     );
   }
 
-  if (state.financialCsvS3Key) {
+  const financialCsvTarget =
+    state.financialCsvStorageKey ||
+    state.financialCsvUrl ||
+    state.financialCsvS3Key;
+
+  if (financialCsvTarget) {
     tasks.push(
       (async () => {
         await emitAgentEvent(jobId, 'extraction', 'progress', 'Parsing financial CSV...');
         try {
-          updates.financialData = await parseCSV(state.financialCsvS3Key!);
+          updates.financialData = await parseCSV(financialCsvTarget);
           await emitAgentEvent(
             jobId,
             'extraction',

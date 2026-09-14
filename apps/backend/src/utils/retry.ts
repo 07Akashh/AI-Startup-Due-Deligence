@@ -1,6 +1,6 @@
 /**
  * Async retry with exponential backoff and jitter.
- * Used for LLM calls, Pinecone operations, and S3 uploads.
+ * Used for LLM calls, Pinecone operations, and storage operations.
  */
 
 interface RetryOptions {

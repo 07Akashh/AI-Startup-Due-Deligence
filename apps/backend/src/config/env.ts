@@ -42,13 +42,11 @@ const envSchema = z.object({
   PINECONE_INDEX_NAME: z.string().default('startupai-due-diligence'),
   PINECONE_ENVIRONMENT: z.string().default('us-east-1'),
 
-  // AWS S3 / Cloudflare R2
-  AWS_ACCESS_KEY_ID: z.string().min(1, 'AWS_ACCESS_KEY_ID is required'),
-  AWS_SECRET_ACCESS_KEY: z.string().min(1, 'AWS_SECRET_ACCESS_KEY is required'),
-  AWS_REGION: z.string().default('us-east-1'),
-  AWS_BUCKET_NAME: z.string().min(1, 'AWS_BUCKET_NAME is required'),
-  AWS_ENDPOINT: z.string().optional(),
-  S3_SIGNED_URL_EXPIRES: z.coerce.number().default(3600),
+  // Cloudinary Storage
+  CLOUDINARY_CLOUD_NAME: z.string().min(1, 'CLOUDINARY_CLOUD_NAME is required'),
+  CLOUDINARY_API_KEY: z.string().min(1, 'CLOUDINARY_API_KEY is required'),
+  CLOUDINARY_API_SECRET: z.string().min(1, 'CLOUDINARY_API_SECRET is required'),
+  CLOUDINARY_UPLOAD_PRESET: z.string().optional(),
 
   // CORS
   FRONTEND_URL: z.string().default('http://localhost:3000'),
