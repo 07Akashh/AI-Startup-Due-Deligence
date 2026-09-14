@@ -52,11 +52,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Basic route protection
-    const publicPaths = ['/login', '/signup', '/'];
-    if (!loading && !user && !publicPaths.includes(pathname)) {
-      router.push('/login');
+    // Only redirect to login if an unauthenticated user actively visits a protected /dashboard route
+    if (!loading && !user && pathname?.startsWith('/dashboard')) {
+      router.push(`/?from=${encodeURIComponent(pathname)}`);
     }
+    // If authenticated user visits login or signup, redirect them to dashboard
     if (!loading && user && (pathname === '/login' || pathname === '/signup')) {
       router.push('/dashboard');
     }
@@ -66,9 +66,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await apiLogout();
       setUser(null);
-      router.push('/login');
+      router.push('/');
     } catch (err) {
       console.error('Logout failed', err);
+      setUser(null);
+      router.push('/');
     }
   };
 

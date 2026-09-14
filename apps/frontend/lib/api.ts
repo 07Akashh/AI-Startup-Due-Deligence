@@ -46,12 +46,12 @@ api.interceptors.response.use(
   (error) => {
     if (error?.response?.status === 401) {
       eraseCookie('token');
+      // Only redirect if an unauthenticated request fails while on a protected /dashboard route
       if (
         typeof window !== 'undefined' &&
-        !window.location.pathname.startsWith('/login') &&
-        !window.location.pathname.startsWith('/signup')
+        window.location.pathname.startsWith('/dashboard')
       ) {
-        window.location.href = '/login';
+        window.location.href = `/login?from=${encodeURIComponent(window.location.pathname)}`;
       }
     }
     return Promise.reject(error);
