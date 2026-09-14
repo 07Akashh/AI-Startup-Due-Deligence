@@ -1,4 +1,4 @@
-import { fullModel } from '../config/llm';
+import { validatorModel } from '../config/llm';
 import { z } from 'zod';
 import { logger } from '../utils/logger';
 import { ExtractedStartupData, FinancialData, RetrievedKnowledge } from './dueDiligenceReasoningAgent';
@@ -27,7 +27,7 @@ async function callValidatorLLM(
   retries = 1
 ): Promise<ValidatorAgentOutput> {
   try {
-    const response = await fullModel.invoke(
+    const response = await validatorModel.invoke(
       `${systemPrompt}\n\nTask:\n${userPrompt}\n\nReturn ONLY a raw JSON object matching the schema.`
     );
 

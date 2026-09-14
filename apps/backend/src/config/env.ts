@@ -18,11 +18,21 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('7d'),
 
   // AI Settings
-  AI_PROVIDER: z.enum(['openai', 'groq']).default('openai'),
+  AI_PROVIDER: z.enum(['openai', 'groq', 'openrouter']).default('openrouter'),
   EMBEDDING_PROVIDER: z.enum(['openai', 'jina']).default('openai'),
 
+  // OpenRouter (Multi-Model Agent Routing)
+  OPENROUTER_API_KEY: z.string().optional(),
+  OPENROUTER_BASE_URL: z.string().default('https://openrouter.ai/api/v1'),
+  OPENROUTER_REASONING_MODEL: z.string().default('deepseek/deepseek-r1:free'),
+  OPENROUTER_EXTRACTION_MODEL: z.string().default('meta-llama/llama-3.3-70b-instruct:free'),
+  OPENROUTER_KNOWLEDGE_MODEL: z.string().default('meta-llama/llama-3.3-70b-instruct:free'),
+  OPENROUTER_VALIDATOR_MODEL: z.string().default('qwen/qwen-2.5-72b-instruct:free'),
+  OPENROUTER_MINI_MODEL: z.string().default('meta-llama/llama-3.3-70b-instruct:free'),
+  OPENROUTER_FULL_MODEL: z.string().default('deepseek/deepseek-r1:free'),
+
   // OpenAI
-  OPENAI_API_KEY: z.string().optional(), // Now optional depending on AI_PROVIDER
+  OPENAI_API_KEY: z.string().optional(),
   OPENAI_ORG_ID: z.string().optional(),
   OPENAI_MINI_MODEL: z.string().default('gpt-4o-mini'),
   OPENAI_FULL_MODEL: z.string().default('gpt-4o'),

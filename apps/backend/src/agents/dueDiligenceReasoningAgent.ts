@@ -1,4 +1,4 @@
-import { fullModel } from '../config/llm';
+import { reasoningModel } from '../config/llm';
 import { z } from 'zod';
 import {
   ExtractedStartupData,
@@ -200,7 +200,7 @@ async function callLLMJson<T>(
       prompt += `\n\nPREVIOUS ERROR: ${previousError}\nFix the JSON and include ALL required fields.`;
     }
 
-    const response = await fullModel.invoke(`${systemPrompt}\n\nTask:\n${prompt}`);
+    const response = await reasoningModel.invoke(`${systemPrompt}\n\nTask:\n${prompt}`);
 
     let content =
       typeof response === 'string'

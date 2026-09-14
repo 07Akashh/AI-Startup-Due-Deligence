@@ -2,7 +2,7 @@ import { AgentState, ReportSectionKey, REPORT_SECTION_QUERIES } from './state';
 import { emitAgentEvent } from '../services/streamService';
 import { updateJobStatus } from '../services/jobService';
 import { chunkText, upsertChunks, queryChunks, TextChunk } from '../services/embeddingService';
-import { miniModel } from '../config/llm';
+import { knowledgeModel } from '../config/llm';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 
 /**
@@ -42,7 +42,7 @@ export async function knowledgeAgent(state: AgentState): Promise<Partial<AgentSt
         ['human', 'Startup Context:\n{context}'],
       ]);
 
-      const chain = researchPromptTemplate.pipe(miniModel);
+      const chain = researchPromptTemplate.pipe(knowledgeModel);
       const researchResponse = await chain.invoke({ context: rawContext });
 
       const syntheticText =
