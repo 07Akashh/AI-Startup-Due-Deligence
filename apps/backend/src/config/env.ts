@@ -24,12 +24,12 @@ const envSchema = z.object({
   // OpenRouter (Multi-Model Agent Routing)
   OPENROUTER_API_KEY: z.string().optional(),
   OPENROUTER_BASE_URL: z.string().default('https://openrouter.ai/api/v1'),
-  OPENROUTER_REASONING_MODEL: z.string().default('deepseek/deepseek-r1:free'),
-  OPENROUTER_EXTRACTION_MODEL: z.string().default('meta-llama/llama-3.3-70b-instruct:free'),
-  OPENROUTER_KNOWLEDGE_MODEL: z.string().default('meta-llama/llama-3.3-70b-instruct:free'),
-  OPENROUTER_VALIDATOR_MODEL: z.string().default('qwen/qwen-2.5-72b-instruct:free'),
-  OPENROUTER_MINI_MODEL: z.string().default('meta-llama/llama-3.3-70b-instruct:free'),
-  OPENROUTER_FULL_MODEL: z.string().default('deepseek/deepseek-r1:free'),
+  OPENROUTER_REASONING_MODEL: z.string().default('nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'),
+  OPENROUTER_EXTRACTION_MODEL: z.string().default('nex-agi/nex-n2.5-mini:free'),
+  OPENROUTER_KNOWLEDGE_MODEL: z.string().default('nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'),
+  OPENROUTER_VALIDATOR_MODEL: z.string().default('nex-agi/nex-n2.5-mini:free'),
+  OPENROUTER_MINI_MODEL: z.string().default('liquid/lfm-2.5-2.6b:free'),
+  OPENROUTER_FULL_MODEL: z.string().default('nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free'),
 
   // OpenAI
   OPENAI_API_KEY: z.string().optional(),
@@ -40,8 +40,8 @@ const envSchema = z.object({
 
   // Groq
   GROQ_API_KEY: z.string().optional(),
-  GROQ_MINI_MODEL: z.string().default('llama-3.1-8b-instant'),
-  GROQ_FULL_MODEL: z.string().default('llama-3.3-70b-versatile'),
+  GROQ_MINI_MODEL: z.string().default('qwen/qwen3.8-27b'),
+  GROQ_FULL_MODEL: z.string().default('openai/gpt-oss-120b'),
 
   // Jina AI
   JINA_API_KEY: z.string().optional(),

@@ -4,6 +4,7 @@ import {
   uploadStreamToStorage,
   getCloudinaryUploadSignature,
   getPresignedUploadUrl,
+  downloadFromStorage,
 } from '../services/storageService';
 import { ApiResponse, UploadResponse } from '@startupai/shared';
 
@@ -12,6 +13,39 @@ const router = Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+});
+
+/**
+ * GET /api/v1/upload/file
+ * Securely proxies and streams uploaded files (PDFs, CSVs) directly from Cloudinary storage.
+ * Bypasses Cloudinary CDN 401 delivery restrictions.
+ */
+router.get('/file', async (req: Request, res: Response) => {
+  try {
+    const { key, url } = req.query as { key?: string; url?: string };
+    const target = key || url;
+    if (!target) {
+      return res.status(400).json({ success: false, error: 'key or url parameter required' });
+    }
+
+    const buffer = await downloadFromStorage(target);
+    const lower = target.toLowerCase();
+
+    if (lower.includes('.pdf') || lower.includes('pitch-decks')) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline; filename="pitch_deck.pdf"');
+    } else if (lower.includes('.csv') || lower.includes('financial')) {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'inline; filename="financials.csv"');
+    } else {
+      res.setHeader('Content-Type', 'application/octet-stream');
+    }
+
+    return res.send(buffer);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ success: false, error: msg });
+  }
 });
 
 /**

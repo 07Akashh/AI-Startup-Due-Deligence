@@ -12,61 +12,61 @@ export type { AgentState, ReportSectionKey };
 
 export const AgentStateAnnotation = Annotation.Root({
   jobId: Annotation<string>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => update || current,
     default: () => '',
   }),
   pitchDeckStorageKey: Annotation<string | undefined>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => (update !== undefined ? update : current),
     default: () => undefined,
   }),
   pitchDeckS3Key: Annotation<string | undefined>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => (update !== undefined ? update : current),
     default: () => undefined,
   }),
   pitchDeckSignedUrl: Annotation<string | undefined>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => (update !== undefined ? update : current),
     default: () => undefined,
   }),
   pitchDeckUrl: Annotation<string | undefined>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => (update !== undefined ? update : current),
     default: () => undefined,
   }),
   websiteUrl: Annotation<string | undefined>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => (update !== undefined ? update : current),
     default: () => undefined,
   }),
   financialCsvStorageKey: Annotation<string | undefined>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => (update !== undefined ? update : current),
     default: () => undefined,
   }),
   financialCsvS3Key: Annotation<string | undefined>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => (update !== undefined ? update : current),
     default: () => undefined,
   }),
   financialCsvUrl: Annotation<string | undefined>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => (update !== undefined ? update : current),
     default: () => undefined,
   }),
   startupStage: Annotation<string | undefined>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => (update !== undefined ? update : current),
     default: () => undefined,
   }),
 
   pitchDeckContent: Annotation<PitchDeckContent | undefined>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => (update !== undefined ? update : current),
     default: () => undefined,
   }),
   websiteContent: Annotation<WebsiteContent | undefined>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => (update !== undefined ? update : current),
     default: () => undefined,
   }),
   financialData: Annotation<FinancialData | undefined>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => (update !== undefined ? update : current),
     default: () => undefined,
   }),
 
   vectorNamespace: Annotation<string>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => update || current,
     default: () => '',
   }),
   ragContext: Annotation<Partial<Record<ReportSectionKey, string[]>>>({
@@ -79,24 +79,24 @@ export const AgentStateAnnotation = Annotation.Root({
     default: () => ({}),
   }),
   validationErrors: Annotation<string[]>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => (update !== undefined ? update : current),
     default: () => [],
   }),
   retryCount: Annotation<number>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => (update !== undefined ? update : current),
     default: () => 0,
   }),
 
   finalReport: Annotation<DueDiligenceReport | undefined>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => (update !== undefined ? update : current),
     default: () => undefined,
   }),
   shouldRetry: Annotation<boolean>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => (update !== undefined ? update : current),
     default: () => false,
   }),
   error: Annotation<string | undefined>({
-    reducer: (_current, update) => update,
+    reducer: (current, update) => (update !== undefined ? update : current),
     default: () => undefined,
   }),
 });

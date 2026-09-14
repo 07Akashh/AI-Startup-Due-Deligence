@@ -209,14 +209,25 @@ async function callLLMJson<T>(
         ? response.content
         : JSON.stringify(response?.content || '{}');
 
-    const jsonStr = content.replace(/```json/gi, '').replace(/```/g, '').trim();
+    // 1. Remove <think>...</think> tags emitted by DeepSeek-R1, Qwen, and other reasoning models
+    content = content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+    // 2. Remove markdown code fence markers
+    let jsonStr = content.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+    // 3. Extract the outermost JSON object
+    const firstBrace = jsonStr.indexOf('{');
+    const lastBrace = jsonStr.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+    }
 
     let parsed: unknown;
     try {
       parsed = JSON.parse(jsonStr);
     } catch (parseError: unknown) {
       const parseMsg = parseError instanceof Error ? parseError.message : String(parseError);
-      console.warn(`[dueDiligenceReasoningAgent] JSON parse failed: ${parseMsg}. Raw: ${jsonStr.slice(0, 300)}`);
+      console.warn(`[dueDiligenceReasoningAgent] JSON parse failed: ${parseMsg}. Raw snippet: ${jsonStr.slice(0, 200)}`);
       if (retries > 0) {
         return callLLMJson(systemPrompt, userPrompt, schema, retries - 1, `JSON parse error: ${parseMsg}`);
       }
@@ -245,51 +256,95 @@ export async function runDueDiligenceReasoningAgent(
   pitchDeckRawText?: string,
   websiteMarkdown?: string
 ): Promise<FullDueDiligenceOutput> {
-  const systemPrompt = `You are a Principal at a top-tier venture capital firm (Sequoia / Benchmark / a16z calibre).
-You produce institutional-grade startup investment memos.
-You combine deep quantitative rigour with sharp market instinct.
+  const stageContext = startupStage
+    ? `\n\nIMPORTANT: The startup is at stage "${startupStage}". Tailor all expectations, scoring rubrics, and recommendations to this specific stage.`
+    : '';
+
+  const systemPrompt = `You are a Principal Venture Capital Investment Partner, Senior Financial Auditor, and Product Strategy Expert performing rigorous investment due diligence.
 
 You MUST reason step-by-step inside the "thinking" field BEFORE writing any other field:
-1. What does this company REALLY do? (cut through marketing buzzwords)
-2. What is their structural advantage / moat? Is it defensible against incumbents?
-3. What are the key unit economics and financial realities?
-4. What are the fatal risks that could kill this company?
-5. Is this an investable opportunity at this stage, and what is the conviction level?
+1. Systematically audit all claims in the pitch materials against the knowledge context.
+2. Evaluate financial runway, burn rate, and financial stability.
+3. Weigh competitive factors: TAM, moat, differentiation, team.
+4. Run rubric-based scoring:
+   - Market opportunity (25%): TAM, growth rate, timing
+   - Financial health & runway (30%): burn, CAC/LTV, margins
+   - Product moat & defensibility (25%): tech differentiation, IP, network effects
+   - Traction & validation (20%): customers, revenue growth, retention
+5. Identify at least 3 specific risks and 3 specific strengths based ONLY on real evidence.
+6. Generate 5+ specific founder questions about unclear or risky areas.
+7. Self-evaluate your confidence (0.0–1.0) based on data completeness.
 
-CRITICAL DATA QUALITY RULES:
-1. NO EMPTY FIELDS: Every single field must contain rich, specific, analytical content.
-2. COMPETITORS: Return minimum 3-5 real competitors (DIRECT, INDIRECT, GLOBAL, REGIONAL, MARKET_LEADER). Do NOT use generic placeholders like "Competitor A".
-3. FINANCIAL ESTIMATION: If financial CSV was not uploaded, set isFinancialEstimated: true, and compute industry-benchmark financial metrics based on stage.
-4. INVESTMENT SCORE: Calibrate carefully from 0-100 based on team, market, product, traction, economics, and moat.`;
+Maintain strict objectivity. If data is not explicitly provided in the pitch deck, you MUST mathematically compute or deduce realistic, industry-benchmark numbers and set isFinancialEstimated=true.${stageContext}`;
 
-  const userPrompt = `Analyze the following startup and produce a complete VC Due Diligence Memo:
+  const userPrompt = `─── Startup Profile ───
+Name: ${startupData.name}
+Tagline: ${startupData.tagline}
+Description: ${startupData.description}
+Stage: ${startupStage || startupData.stage}
+Founded: ${startupData.founded ?? 'N/A'}
+Location: ${startupData.location ?? 'N/A'}
+Team Size: ${startupData.teamSize ?? 'N/A'}
+Key Highlights: ${JSON.stringify(startupData.keyHighlights ?? [])}
 
-Startup Profile:
-- Name: ${startupData.name}
-- Tagline: ${startupData.tagline}
-- Description: ${startupData.description}
-- Stage: ${startupStage || startupData.stage}
-- Founded: ${startupData.founded || 'N/A'}
-- Location: ${startupData.location || 'N/A'}
-- Team Size: ${startupData.teamSize || 'N/A'}
-- Key Highlights: ${(startupData.keyHighlights || []).join('; ')}
+─── Financial Data ───
+Summary: ${financialData.summary ?? 'No financial model uploaded — use market benchmarks and set isFinancialEstimated=true'}
+Current Revenue: ${financialData.metrics?.revenue?.at(-1)?.toString() || 'N/A'}
+Burn Rate: ${financialData.metrics?.burnRate?.at(-1)?.toString() || 'N/A'}
+Runway: ${financialData.metrics?.runway?.toString() || 'N/A'}
+Gross Margin: ${financialData.metrics?.grossMargin?.toString() || 'N/A'}
+${pitchDeckRawText ? `
+─── FULL PITCH DECK (PRIMARY SOURCE — USE THIS AS THE MAIN INPUT) ───
+${pitchDeckRawText.slice(0, 7000)}
+` : ''}
+${websiteMarkdown ? `
+─── WEBSITE CONTENT ───
+${websiteMarkdown.slice(0, 3000)}
+` : ''}
 
-Financial Inputs:
-- Summary: ${financialData.summary || 'None provided'}
-- Latest Revenue: ${financialData.metrics?.revenue?.at(-1)?.toString() || 'N/A'}
-- Latest Burn: ${financialData.metrics?.burnRate?.at(-1)?.toString() || 'N/A'}
-- Runway: ${financialData.metrics?.runway?.toString() || 'N/A'}
-- Gross Margin: ${financialData.metrics?.grossMargin?.toString() || 'N/A'}
+─── Retrieved Market & Competitive Intelligence ───
+${(knowledge.context || []).slice(0, 12).join('\n\n---\n\n')}
 
-Raw Pitch Deck Context:
-${pitchDeckRawText ? pitchDeckRawText.slice(0, 4000) : 'No pitch deck provided'}
+Return a COMPLETE JSON object with ALL of the following sections filled with specific, evidence-based data. Enforce the exact type formats:
+- thinking: A detailed string describing your step-by-step reasoning chain.
+- name, tagline, stage, description, investmentReadiness, growthPotential: Strings (never empty or null).
+- founded, location, teamSize: Strings. If not explicitly in the deck, provide a realistic estimate based on founding indicators/clues (e.g. "2024 (Est.)", "Bengaluru, India (HQ)", "1-10"). Do NOT return a plain "N/A" or "Unknown".
+- keyHighlights: A simple array of strings (e.g. ["Robust tech moat", "Experienced founders"]), never objects.
+- problem, solution, valueProposition, businessModel, competitiveAdvantage, competitorLandscape: Strings.
+- revenueStreams: A simple array of strings (e.g. ["SaaS Subscriptions", "Transaction Fees"]), never objects.
+- tam, sam, som: Market size strings with currency (e.g., "$15.4B" or "$300M"). If SAM or SOM are not in the deck, mathematically calculate them based on market standard capture benchmarks (e.g., SAM as 15-20% of TAM, SOM as 2-5% of SAM/TAM) based on sector size. NEVER return "Unknown" or "N/A" for SAM/SOM.
+- marketGrowthRate: A string (e.g. "12% CAGR").
+- keyTrends, emergingTrends, futureOpportunities, industryChallenges: Simple arrays of strings, never objects.
+- competitors: Array of objects (at least 3 direct/indirect competitors). Each competitor must have:
+  - name: string. NEVER return generic placeholder competitor names like "Competitor A", "Competitor B", "Competitor C". You MUST use real, actual competitor company names extracted from the pitch materials or from market intelligence.
+  - type: one of "DIRECT", "INDIRECT", "GLOBAL", "REGIONAL", "MARKET_LEADER"
+  - fundingRaised: string (e.g. "$250M", "Estimated $10M-$20M", or "Bootstrapped"). Do NOT return a plain "Unknown" or "N/A" — make a reasonable estimation.
+  - businessModel: string (e.g. "Inventory-led B2C")
+  - revenueModel: string (e.g. "Direct sales margins")
+  - pricingStrategy: string (e.g. "Value pricing")
+  - marketPositioning: string (e.g. "Premium fresh organic")
+  - strengths: simple array of strings (never objects)
+  - weaknesses: simple array of strings (never objects)
+  - customerSegments: simple array of strings (never objects)
+- isFinancialEstimated: Boolean (true/false).
+- currentRevenue, burnRate, runway, grossMargin, cac, ltv, marketMultiples: Strings. If not explicitly provided, estimate them based on early-stage software/hardware benchmarks (e.g. "Estimated $10k/mo", "Estimated $20k/mo burn", "12 months runway", "70%", "N/A"). Ensure isFinancialEstimated=true is set.
+- recommendedRaiseAmount, suggestedValuationRange: Strings with currency. Always calculate and suggest a realistic fundraising range and valuation range appropriate for the startup's stage (e.g., Seed stage: raise "$1.5M - $2.5M" at "$8M - $12M valuation"). Do NOT return "Unknown" or "N/A".
+- industryBenchmarks, keyMetrics: Array of objects with { label: string, value: string } (e.g. { label: "LTV/CAC", value: "3.5x" }).
+- financialHealth: One of "STRONG", "STABLE", "CONCERNING", "CRITICAL".
+- financialCommentary: A detailed string.
+- risks: Array of at least 4 objects with { title: string, severity: "LOW"|"MEDIUM"|"HIGH"|"CRITICAL", description: string }.
+- strengths: Array of at least 4 objects with { title: string, description: string }.
+- fundingReadinessScore: An integer from 0 to 100 (e.g. 75), NEVER a decimal.
+- vcPerspective: A detailed string.
+- preSeedSuitability, seedSuitability, seriesASuitability: Strings. Evaluate the suitability of the funding stage objectively based on team maturity and traction benchmarks (e.g., "Highly Suitable - matches Pre-Seed traction benchmarks", "Potential - product validation needed", "Too Early - requires core revenue proof"). Do NOT return "Unknown" or "N/A".
+- investmentThesis, marketTiming, competitiveMoat: Strings.
+- exitOpportunities: A simple array of strings (e.g. ["Acquisition by retail chains", "Strategic exit to tech major"]), never objects.
+- investmentScore: An integer from 0 to 100 (e.g. 70), NEVER a decimal.
+- recommendation: One of "STRONG_INVEST", "INVEST", "PASS", "NEEDS_MORE_INFO".
+- founderQuestions: A simple array of at least 5 strings (e.g. ["How will you maintain margins?", "What is the team's key gap?"]), never objects.
+- confidenceScore: A float between 0.0 and 1.0 (e.g. 0.8).
+- sourcesUsed: A simple array of strings.`;
 
-Website Content:
-${websiteMarkdown ? websiteMarkdown.slice(0, 3000) : 'No website content provided'}
-
-Retrieved Market & Competitive Intelligence (RAG):
-${(knowledge.context || []).slice(0, 10).join('\n---\n')}`;
-
-  const rawResult = await callLLMJson(systemPrompt, userPrompt, FullDueDiligenceSchema);
+  const rawResult = await callLLMJson(systemPrompt, userPrompt, FullDueDiligenceSchema, 2);
   return rawResult as FullDueDiligenceOutput;
 }

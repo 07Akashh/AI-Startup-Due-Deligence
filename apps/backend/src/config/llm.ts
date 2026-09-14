@@ -1,5 +1,4 @@
 import { ChatOpenAI, OpenAIEmbeddings } from '@langchain/openai';
-import { ChatOpenRouter } from '@langchain/openrouter';
 import { ChatGroq } from '@langchain/groq';
 import { env } from './env';
 import { logger } from '../utils/logger';
@@ -7,8 +6,58 @@ import { RedisLangChainCache } from './redisCache';
 
 const cache = new RedisLangChainCache();
 
-// ─── Re-export ChatOpenRouter from official @langchain/openrouter ─────────────
-export { ChatOpenRouter };
+// ─── ChatOpenRouter LangChain Class ──────────────────────────────────────────
+export class ChatOpenRouter extends ChatOpenAI {
+  constructor(
+    fields?:
+      | string
+      | {
+          model?: string;
+          modelName?: string;
+          apiKey?: string;
+          openAIApiKey?: string;
+          temperature?: number;
+          maxTokens?: number;
+          streaming?: boolean;
+        },
+    options?: { temperature?: number; apiKey?: string }
+  ) {
+    if (typeof fields === 'string') {
+      super({
+        model: fields,
+        modelName: fields,
+        temperature: options?.temperature ?? 0.2,
+        apiKey: options?.apiKey || env.OPENROUTER_API_KEY || 'dummy-key',
+        configuration: {
+          baseURL: env.OPENROUTER_BASE_URL,
+          defaultHeaders: {
+            'HTTP-Referer': 'https://startupai.local',
+            'X-Title': 'StartupAI Multi-Agent Due Diligence',
+          },
+        },
+        cache,
+      });
+    } else {
+      const targetModel = fields?.model || fields?.modelName || env.OPENROUTER_FULL_MODEL;
+      super({
+        model: targetModel,
+        modelName: targetModel,
+        temperature: fields?.temperature ?? 0.2,
+        apiKey: fields?.apiKey || fields?.openAIApiKey || env.OPENROUTER_API_KEY || 'dummy-key',
+        maxTokens: fields?.maxTokens,
+        streaming: fields?.streaming ?? false,
+        configuration: {
+          baseURL: env.OPENROUTER_BASE_URL,
+          defaultHeaders: {
+            'HTTP-Referer': 'https://startupai.local',
+            'X-Title': 'StartupAI Multi-Agent Due Diligence',
+          },
+        },
+        cache,
+      });
+    }
+  }
+}
 
 // ─── Swappable Embeddings ───────────────────────────────────────────────────
 let embeddingsInstance: OpenAIEmbeddings;
@@ -42,14 +91,13 @@ let miniModelInstance: ChatOpenRouter | ChatOpenAI | ChatGroq;
 let fullModelInstance: ChatOpenRouter | ChatOpenAI | ChatGroq;
 
 if (env.AI_PROVIDER === 'openrouter') {
-  logger.info('Using official @langchain/openrouter with Multi-Model Agent Routing');
+  logger.info('Using OpenRouter as the AI Provider with Multi-Model Agent Routing');
 
   const createOpenRouterChat = (modelName: string, temperature = 0.2) =>
     new ChatOpenRouter({
       model: modelName,
       apiKey: env.OPENROUTER_API_KEY || 'dummy-key',
       temperature,
-      cache,
     });
 
   reasoningModelInstance = createOpenRouterChat(env.OPENROUTER_REASONING_MODEL, 0.2);

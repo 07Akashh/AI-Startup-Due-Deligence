@@ -38,7 +38,18 @@ async function callValidatorLLM(
         ? response.content
         : JSON.stringify(response?.content || '{}');
 
-    const jsonStr = content.replace(/```json/gi, '').replace(/```/g, '').trim();
+    // 1. Remove <think>...</think> tags emitted by CoT models
+    content = content.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+
+    // 2. Remove markdown code fence markers
+    let jsonStr = content.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+    // 3. Extract the outermost JSON object
+    const firstBrace = jsonStr.indexOf('{');
+    const lastBrace = jsonStr.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+    }
 
     let parsed: unknown;
     try {
