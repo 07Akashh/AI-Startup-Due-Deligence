@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="50%" stop-color="#1E293B" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+    <linearGradient id="lensGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366F1" />
+      <stop offset="50%" stop-color="#8B5CF6" />
+      <stop offset="100%" stop-color="#EC4899" />
+    </linearGradient>
+    <linearGradient id="sparkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#818CF8" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="16" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background Squircle -->
+  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" stroke="#334155" stroke-width="8" />
+
+  <!-- Outer Glowing Lens Ring -->
+  <circle cx="256" cy="256" r="170" fill="none" stroke="url(#lensGrad)" stroke-width="20" opacity="0.85" filter="url(#glow)" />
+  <circle cx="256" cy="256" r="170" fill="none" stroke="url(#lensGrad)" stroke-width="12" />
+
+  <!-- Inner Geometric Aperture / Iris Blades -->
+  <polygon points="256,120 370,186 370,326 256,392 142,326 142,186" fill="none" stroke="#64748B" stroke-width="6" opacity="0.4" />
+
+  <!-- Stylized Venture 'V' + AI Focal Node -->
+  <path d="M 170,195 L 256,345 L 342,195" fill="none" stroke="#FFFFFF" stroke-width="26" stroke-linecap="round" stroke-linejoin="round" />
+  <path d="M 200,205 L 256,310 L 312,205" fill="none" stroke="url(#sparkGrad)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Center AI Core Spark -->
+  <circle cx="256" cy="245" r="18" fill="url(#sparkGrad)" filter="url(#glow)" />
+  <circle cx="256" cy="245" r="10" fill="#FFFFFF" />
+
+  <!-- Top Right Neural Spark Node -->
+  <circle cx="360" cy="150" r="14" fill="#38BDF8" filter="url(#glow)" />
+  <line x1="320" y1="190" x2="360" y2="150" stroke="#38BDF8" stroke-width="4" stroke-dasharray="6,4" opacity="0.8" />
+</svg>

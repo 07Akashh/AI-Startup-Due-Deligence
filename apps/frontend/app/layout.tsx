@@ -6,12 +6,17 @@ import { cn } from "@/lib/utils";
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 export const metadata: Metadata = {
-  title: 'AI Startup Due Diligence Assistant | StartupAI',
+  title: 'VentureLens.ai | Institutional AI Startup Due Diligence Platform',
   description:
-    'Upload your pitch deck, website, and financials — receive a comprehensive AI-powered due diligence report in minutes. Built for investors and founders.',
-  keywords: 'startup due diligence, AI analysis, pitch deck, venture capital, investor tools',
+    'Institutional-grade AI due diligence for Venture Capital, Angel Investors, and Founders. Upload pitch deck PDFs, financials, and websites for automated deep intelligence reports.',
+  keywords: 'VentureLens, startup due diligence, AI venture capital, pitch deck analysis, investor memo, VC intelligence, rahulkr',
+  icons: {
+    icon: '/favicon.svg',
+    shortcut: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
   openGraph: {
-    title: 'AI Startup Due Diligence Assistant',
+    title: 'VentureLens.ai | AI Startup Due Diligence Platform',
     description: 'AI-powered due diligence reports for investors and founders',
     type: 'website',
   },
